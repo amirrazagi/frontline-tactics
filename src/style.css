@@ -1,5 +1,5 @@
 :root {
-  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+  font-family: 'Vazirmatn Variable', 'Vazirmatn', Tahoma, Arial, sans-serif;
   color: #edf4f1;
   background: #17241f;
   font-synthesis: none;
@@ -115,7 +115,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
 .placement-hint { position: absolute; top: 96px; left: 50%; transform: translateX(-50%); background: rgba(12,21,23,.88); border: 1px solid rgba(117,227,192,.3); border-radius: 9px; padding: 8px 12px; font-size: 10px; color: #bcebd9; white-space: nowrap; }
 kbd { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; color: #fff; font-family: inherit; margin-right: 5px; }
-.pause-veil { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,12,13,.38); pointer-events: auto; }
+/* The veil must not swallow clicks, otherwise the pause button (and the restart button) become unreachable and the game soft-locks. */
+.pause-veil { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,12,13,.38); pointer-events: none; }
 .pause-box { display: grid; place-items: center; gap: 8px; min-width: 220px; padding: 26px; border-radius: 16px; }
 .pause-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: rgba(117,227,192,.12); color: var(--accent); font-size: 22px; }
 .pause-box strong { font-size: 15px; }
@@ -251,4 +252,94 @@ kbd { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08)
   .build-panel { bottom: 8px; }
   .start-panel { padding-top: 15px; padding-bottom: 10px; }
   .faction-option { min-height: 70px; }
+}
+
+/* ---------- utility buttons in the faction card ---------- */
+.utility-row { display: flex; gap: 6px; margin-top: 9px; }
+.utility-button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 4px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: rgba(255,255,255,.04); color: #b9cdc7; font-size: 10px; cursor: pointer; transition: .16s; }
+.utility-button:hover { border-color: rgba(117,227,192,.4); color: #eaf7f2; background: rgba(117,227,192,.1); }
+.utility-button.muted { color: #7b8f89; }
+.utility-button span { font-size: 12px; line-height: 1; }
+.utility-button small { font-size: 8px; color: inherit; }
+@media (max-width: 760px) {
+  .utility-row { margin-top: 6px; gap: 4px; }
+  .utility-button { padding: 4px 2px; font-size: 8px; }
+  .utility-button span { font-size: 10px; }
+}
+
+/* ---------- difficulty, help, stats, production ---------- */
+.difficulty-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+.difficulty-copy { display: flex; flex-direction: column; gap: 3px; }
+.difficulty-copy strong { font-size: 11px; }
+.difficulty-copy small { color: #8fa49e; font-size: 9px; }
+.difficulty-picker { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.07); }
+.difficulty-option { border: 0; background: transparent; color: #91a59f; border-radius: 6px; padding: 6px 14px; font-size: 10px; cursor: pointer; transition: .16s; }
+.difficulty-option:hover { color: #d9f5eb; }
+.difficulty-option.active { color: #122e27; background: linear-gradient(110deg, #a5f0d0, #64c9ae); font-weight: 800; }
+.link-button { border: 0; background: none; color: #8fe3c7; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: 0; }
+.secondary-button { min-width: 120px; border: 1px solid rgba(202,227,218,.22); background: rgba(255,255,255,.05); color: #d6e7e1; border-radius: 10px; padding: 11px 15px; font-size: 11px; font-weight: 700; cursor: pointer; transition: .18s; }
+.secondary-button:hover { border-color: rgba(117,227,192,.5); color: #fff; background: rgba(117,227,192,.12); }
+.result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 0 0 18px; }
+.result-stat { border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(255,255,255,.035); padding: 8px 6px; display: flex; flex-direction: column; gap: 3px; }
+.result-stat small { color: #8da29b; font-size: 8px; }
+.result-stat strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+.result-actions { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.result-actions .primary-button { min-width: 0; flex: 1; gap: 12px; }
+.result-actions .secondary-button { flex: 1; }
+.help-panel { width: min(720px, 100%); max-height: calc(100% - 20px); overflow-y: auto; padding: 20px 24px 16px; border-radius: 19px; background: rgba(13,23,25,.96); }
+.help-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.help-head h2 { margin: 4px 0 0; font-size: 21px; }
+.help-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.help-block { border: 1px solid rgba(255,255,255,.07); border-radius: 11px; background: rgba(255,255,255,.028); padding: 11px 13px; }
+.help-block strong { font-size: 11px; color: #b9f0dd; }
+.help-block ul { margin: 7px 0 0; padding-inline-start: 15px; display: flex; flex-direction: column; gap: 5px; }
+.help-block li { font-size: 9px; line-height: 1.7; color: #a8bcb6; }
+.help-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+.help-foot span { color: #6f847d; font-size: 8px; }
+.help-foot .primary-button { min-width: 118px; }
+.queue-line { margin-top: 7px; color: #f2c66e; font-size: 9px; line-height: 1.6; }
+.queue-line:empty { display: none; }
+.build-copy .queue-count { color: #8fd8c3; font-size: 7px; }
+.build-copy .queue-count:empty { display: none; }
+.build-card.producing { box-shadow: inset 0 0 0 1px rgba(242,198,110,.4); }
+.toast.warn { border-color: rgba(251,107,112,.45); color: #ffd9d5; }
+.toast.good { border-color: rgba(117,227,192,.5); }
+
+@media (max-width: 760px) {
+  .difficulty-row { gap: 8px; margin-top: 9px; padding-top: 9px; }
+  .difficulty-copy strong { font-size: 9px; }
+  .difficulty-copy small { font-size: 7px; }
+  .difficulty-option { padding: 5px 9px; font-size: 8px; }
+  .help-panel { padding: 14px 13px 11px; border-radius: 14px; }
+  .help-head h2 { font-size: 16px; }
+  .help-grid { grid-template-columns: 1fr; gap: 7px; }
+  .help-block { padding: 8px 10px; }
+  .help-block strong { font-size: 9px; }
+  .help-block li { font-size: 8px; }
+  .help-foot { margin-top: 10px; padding-top: 9px; }
+  .help-foot span { display: none; }
+  .help-foot .primary-button { width: 100%; }
+  .result-stats { gap: 5px; margin-bottom: 12px; }
+  .result-stat small { font-size: 7px; }
+  .result-stat strong { font-size: 10px; }
+  .result-actions { flex-direction: column; }
+  .result-actions .primary-button, .result-actions .secondary-button { width: 100%; }
+  .queue-line { font-size: 8px; }
+}
+
+@media (max-width: 560px) {
+  .utility-button small { display: none; }
+}
+
+/* very short screens (landscape phones): keep the HUD readable */
+@media (max-height: 560px) {
+  .minimap-card { display: none; }
+  .faction-card { top: 64px; }
+  .selection-card { bottom: 150px; }
+}
+
+@media (max-height: 500px) {
+  .faction-card p { display: none; }
+  .faction-card { width: min(190px, 44vw); }
+  .utility-row { margin-top: 6px; }
 }

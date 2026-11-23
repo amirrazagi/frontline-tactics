@@ -45,6 +45,10 @@
             <span class="ability-arrow">←</span>
           </button>
           <div id="activeBoost" class="active-boost hidden"></div>
+          <div class="utility-row">
+            <button id="soundBtn" class="utility-button" type="button" aria-label="روشن و خاموش کردن صدا"><span>♪</span><small>صدا</small></button>
+            <button id="helpBtn" class="utility-button" type="button" aria-label="راهنمای بازی"><span>؟</span><small>راهنما</small></button>
+          </div>
         </aside>
 
         <section class="minimap-card glass" aria-label="نقشهٔ کوچک">
@@ -82,8 +86,56 @@
           <p class="start-intro">جناح خودت را انتخاب کن، پایگاه بساز و مرکز فرماندهی دشمن را نابود کن.</p>
           <div class="faction-select-head"><div><strong>انتخاب جناح</strong><small>هر جناح توانایی و سبک بازی ویژهٔ خودش را دارد</small></div><span class="select-count">۸ جناح</span></div>
           <div id="factionGrid" class="faction-grid"></div>
-          <div class="start-footer"><div class="controls-note"><span>🖱</span><span>انتخاب و حرکت</span><i>·</i><span>روی نقشه بکشید</span><small>روی موبایل با لمس و کشیدن</small></div><button id="startBtn" class="primary-button">ورود به میدان <span>←</span></button></div>
+          <div class="difficulty-row">
+            <div class="difficulty-copy"><strong>سطح دشمن</strong><small id="difficultyHint">تعادل استاندارد نبرد</small></div>
+            <div id="difficultyPicker" class="difficulty-picker" role="group" aria-label="سطح سختی">
+              <button type="button" class="difficulty-option" data-difficulty="easy">آسان</button>
+              <button type="button" class="difficulty-option active" data-difficulty="normal">معمولی</button>
+              <button type="button" class="difficulty-option" data-difficulty="hard">سخت</button>
+            </div>
+          </div>
+          <div class="start-footer"><div class="controls-note"><span>🖱</span><span>انتخاب و حرکت</span><i>·</i><span>روی نقشه بکشید</span><small>روی موبایل با لمس و کشیدن · <button id="helpLink" class="link-button" type="button">راهنمای کامل</button></small></div><button id="startBtn" class="primary-button">ورود به میدان <span>←</span></button></div>
           <div class="prototype-note">نسخهٔ آزمایشی · بازی تک‌نفره در مرورگر</div>
+        </div>
+      </section>
+
+      <section id="helpScreen" class="screen-overlay hidden">
+        <div class="help-panel glass" role="dialog" aria-modal="true" aria-label="راهنمای بازی">
+          <div class="help-head">
+            <div><span class="eyebrow">راهنمای میدان</span><h2>چطور فرماندهی کنم؟</h2></div>
+            <button id="helpCloseBtn" class="icon-button" aria-label="بستن راهنما"><span>×</span></button>
+          </div>
+          <div class="help-grid">
+            <div class="help-block"><strong>انتخاب و فرمان</strong><ul>
+              <li>کلیک روی واحد یا ساختمان خودی: انتخاب</li>
+              <li>کلیک روی زمین: حرکت واحد انتخاب‌شده</li>
+              <li>کلیک روی دشمن: حمله</li>
+              <li>کلیک راست روی زمین یا دشمن: فرمان به همهٔ نیروها</li>
+              <li>کلیک راست روی واحد خودی: آن واحد را انتخاب کن</li>
+            </ul></div>
+            <div class="help-block"><strong>ساخت و تولید</strong><ul>
+              <li>تب «ساخت‌وساز»: انتخاب گزینه، سپس کلیک روی نقطهٔ سبز</li>
+              <li>تب «تولید نیرو»: نیرو به صف تولید می‌رود</li>
+              <li>نیروگاه برق لازم برای کارخانه‌ها و برجک‌ها را تأمین می‌کند</li>
+              <li>مهندس ساختمان‌ها و واحدهای آسیب‌دیده را ترمیم می‌کند</li>
+              <li>با انتخاب یک ساختمان، صف تولیدش را می‌بینی</li>
+            </ul></div>
+            <div class="help-block"><strong>دوربین و میان‌بر</strong><ul>
+              <li>کشیدن روی میدان یا کلیک روی نقشهٔ کوچک: جابه‌جایی دوربین</li>
+              <li>W A S D یا کلیدهای جهت: حرکت دوربین</li>
+              <li>چرخ ماوس یا دو انگشت: بزرگ‌نمایی</li>
+              <li>H: بازگشت به پایگاه · Space: توقف/ادامه</li>
+              <li>Esc: لغو ساخت یا هدف‌گیری توانایی</li>
+            </ul></div>
+            <div class="help-block"><strong>هدف</strong><ul>
+              <li>مرکز فرماندهی دشمن را نابود کن</li>
+              <li>هر جناح توانایی و ساختمان ویژهٔ خودش را دارد</li>
+              <li>توانایی ویژه هر ۶۰ ثانیه آماده می‌شود</li>
+              <li>فشار دشمن با گذشت زمان بیشتر می‌شود</li>
+              <li>موج‌های دشمن را پیش از رسیدن به پایگاه متوقف کن</li>
+            </ul></div>
+          </div>
+          <div class="help-foot"><span>نسخهٔ آزمایشی · تک‌نفره در مرورگر</span><button id="helpStartBtn" class="primary-button">فهمیدم <span>←</span></button></div>
         </div>
       </section>
 
@@ -93,7 +145,11 @@
           <span id="resultEyebrow" class="eyebrow">عملیات به پایان رسید</span>
           <h2 id="resultTitle">پیروزی</h2>
           <p id="resultText">مرکز فرماندهی دشمن نابود شد.</p>
-          <button id="playAgainBtn" class="primary-button">نبرد دوباره <span>↻</span></button>
+          <div id="resultStats" class="result-stats"></div>
+          <div class="result-actions">
+            <button id="playAgainBtn" class="primary-button">نبرد دوباره <span>↻</span></button>
+            <button id="changeFactionBtn" class="secondary-button">تغییر جناح</button>
+          </div>
         </div>
       </section>
     </div>
