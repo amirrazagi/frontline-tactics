@@ -32,7 +32,7 @@ const BUILDINGS = [
   { kind: 'refinery', name: 'پالایشگاه', icon: '♨', cost: 750, hp: 950, powerUse: 25, income: 12, armor: 15, requires: 'hq', description: 'درآمد ثابت +۱۲ اعتبار در ثانیه' },
   { kind: 'barracks', name: 'پادگان', icon: '▰', cost: 600, hp: 900, powerUse: 20, armor: 18, requires: 'hq', description: 'خودروی شناسایی، مهندس و تیم موشک‌انداز' },
   { kind: 'turret', name: 'برجک دفاعی', icon: '⌖', cost: 500, hp: 850, powerUse: 20, range: 14, damage: 34, cooldown: 1.0, armor: 40, requires: 'barracks', description: 'پدافند زمینی خودکار' },
-  { kind: 'sam', name: 'سامانهٔ پدافند هوایی', icon: '⌁', cost: 950, hp: 800, powerUse: 30, range: 24, damage: 150, cooldown: 2.2, armor: 25, canHitAir: true, antiAirOnly: true, requires: 'turret', description: 'موشک زمین‌به‌هوا؛ فقط اهداف هوایی' },
+  { kind: 'sam', name: 'سامانهٔ پدافند هوایی', icon: '⌁', cost: 950, hp: 800, powerUse: 30, range: 24, damage: 150, cooldown: 2.2, armor: 25, canHitAir: true, antiAirOnly: true, missile: true, requires: 'turret', description: 'موشک زمین‌به‌هوا؛ فقط اهداف هوایی' },
   { kind: 'logistics', name: 'پایانهٔ کشتیرانی', icon: '⚓', cost: 1100, hp: 1050, powerUse: 35, income: 8, armor: 16, requires: 'refinery', description: 'خط لجستیک: درآمد +۸ و ۱۲٪ سرعت تولید بیشتر' },
   { kind: 'armor', name: 'کارخانهٔ زرهی', icon: '▥', cost: 1500, hp: 1400, powerUse: 55, armor: 25, requires: 'logistics', description: 'تانک، نفربر و راکت‌انداز تولید می‌کند' },
   { kind: 'airfield', name: 'فرودگاه', icon: '✈', cost: 1800, hp: 1200, powerUse: 60, armor: 18, requires: 'armor', description: 'بالگرد و جنگنده تولید می‌کند' },
@@ -117,6 +117,8 @@ const sound = (() => {
     shot: (fromPlayer) => { const now = performance.now(); if (now - lastShotAt < 75) return; lastShotAt = now; tone(fromPlayer ? 780 : 540, .05, { type: 'square', gain: .011, endFreq: 360 }); },
     build: () => { tone(620, .1, { type: 'sine', gain: .038, endFreq: 640 }); tone(940, .13, { type: 'sine', gain: .032, endFreq: 960, delay: .09 }); },
     explode: () => noise(.36, .11),
+    missile: (fromPlayer) => { const now = performance.now(); if (now - lastShotAt < 90) return; lastShotAt = now; tone(fromPlayer ? 190 : 150, .32, { type: 'sawtooth', gain: .018, endFreq: 1050 }); },
+    impact: () => noise(.22, .075),
     victory: () => [523, 659, 784, 1046].forEach((freq, index) => tone(freq, .24, { type: 'triangle', gain: .05, delay: index * .12 })),
     defeat: () => [392, 330, 262].forEach((freq, index) => tone(freq, .32, { type: 'sine', gain: .05, delay: index * .16 })),
     toggle() {
@@ -135,8 +137,12 @@ scene.fog = new THREE.Fog('#90a69a', 82, 145);
 const camera = new THREE.OrthographicCamera(-24, 24, 24, -24, 0.1, 260);
 let cameraHeight = 44;
 const cameraTarget = new THREE.Vector3(0, 0, 0);
+// Full-HD render target: the drawing buffer is capped at 1920x1080 no matter how
+// large or pixel-dense the display is, so every machine animates at 1080p.
+const MAX_RENDER_WIDTH = 1920;
+const MAX_RENDER_HEIGHT = 1080;
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -148,7 +154,8 @@ scene.add(new THREE.HemisphereLight(0xd8ece1, 0x37473b, 1.8));
 const sun = new THREE.DirectionalLight(0xffe9c9, 2.3);
 sun.position.set(-32, 58, 24);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
+const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
+sun.shadow.mapSize.set(coarsePointer ? 1024 : 2048, coarsePointer ? 1024 : 2048);
 sun.shadow.camera.left = -56;
 sun.shadow.camera.right = 56;
 sun.shadow.camera.top = 56;
@@ -196,10 +203,20 @@ let repairFxTimer = 0;
 const buildings = [];
 const units = [];
 const effects = [];
+const projectiles = [];
+let damageSmokeTimer = 0;
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 let pointerState = null;
 let lastFrame = performance.now();
+
+const MISSILE_FORWARD = new THREE.Vector3(0, 0, 1);
+const missileBodyGeometry = new THREE.CylinderGeometry(.075, .075, .52, 8);
+const missileNoseGeometry = new THREE.ConeGeometry(.085, .21, 8);
+const missileFinGeometry = new THREE.BoxGeometry(.025, .17, .13);
+const missileBandGeometry = new THREE.CylinderGeometry(.08, .08, .1, 8);
+const missileFlameGeometry = new THREE.SphereGeometry(.13, 7, 6);
+const smokeGeometry = new THREE.SphereGeometry(1, 6, 5);
 
 const factionById = (id) => factions.find((faction) => faction.id === id) || factions[0];
 const playerFaction = () => factionById(selectedFactionId);
@@ -221,6 +238,9 @@ function resize() {
   camera.top = cameraHeight / 2;
   camera.bottom = -cameraHeight / 2;
   camera.updateProjectionMatrix();
+  const deviceRatio = Math.min(window.devicePixelRatio || 1, 2);
+  const fullHdScale = Math.min(1, MAX_RENDER_WIDTH / (width * deviceRatio), MAX_RENDER_HEIGHT / (height * deviceRatio));
+  renderer.setPixelRatio(Math.max(.5, deviceRatio * fullHdScale));
   renderer.setSize(width, height, false);
   updateCamera();
 }
@@ -392,6 +412,16 @@ function createBuildingVisual(kind, color, factionId) {
     addBox(group, .22, 1.2, .22, .15, 2.73, -.35, '#c4c6a7');
     addCylinder(group, .06, .06, .68, 8, .15, 3.66, -.35, color);
     addBox(group, 1.15, .5, .12, 0, .76, 1.39, color);
+    for (const x of [-.8, 0, .8]) addBox(group, .5, .18, .06, x, 1.5, 1.37, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .55 });
+    for (const x of [-1.65, 1.65]) addBox(group, .5, .18, .06, x, 1.9, 1.05, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .45 });
+    const beacon = new THREE.Mesh(new THREE.SphereGeometry(.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff7a68, transparent: true, opacity: .9 }));
+    beacon.position.set(.15, 4.02, -.35);
+    group.add(beacon);
+    group.userData.beacon = beacon;
+    for (const [sx, sz] of [[-2.35, 2.1], [-1.55, 2.35], [2.35, 2.1], [1.55, 2.35]]) {
+      addBox(group, .62, .3, .4, sx, .36, sz, '#8d8563');
+      addBox(group, .5, .22, .34, sx + .1, .6, sz, '#797253');
+    }
   } else if (kind === 'generator') {
     addBox(group, 3.1, 1.25, 2.7, 0, .88, 0, dark);
     for (const x of [-1.2, 0, 1.2]) {
@@ -440,13 +470,22 @@ function createBuildingVisual(kind, color, factionId) {
     addBox(group, 2.0, .9, 1.7, -1.04, 1.28, .2, mid);
     addBox(group, .8, .5, .1, -1.04, 1.5, 1.06, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .3 });
     addCylinder(group, .08, .1, 2.1, 8, 1.2, 1.9, -.4, '#b6b79e');
+    const radarPivot = new THREE.Group();
+    radarPivot.position.set(1.2, 2.95, -.4);
+    group.add(radarPivot);
+    group.userData.radar = radarPivot;
     const samRadar = new THREE.Mesh(new THREE.SphereGeometry(.72, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), makeMaterial(color, { metalness: .2, roughness: .45, side: THREE.DoubleSide }));
-    samRadar.position.set(1.2, 2.95, -.4);
     samRadar.rotation.x = Math.PI * .82;
     samRadar.scale.set(1, .55, 1);
-    group.add(samRadar);
+    radarPivot.add(samRadar);
+    addCylinder(radarPivot, .05, .05, .1, 6, 0, .5, 0, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .9 });
+    for (const x of [-1.25, -.75]) addBox(group, .3, .18, .06, x, 1.55, 1.09, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .3 });
+    const launcherYaw = new THREE.Group();
+    launcherYaw.position.set(.55, 0, .2);
+    group.add(launcherYaw);
+    group.userData.turret = launcherYaw;
     const launcher = new THREE.Group();
-    launcher.position.set(.55, 1.1, .2);
+    launcher.position.set(0, 1.1, 0);
     launcher.rotation.x = -.42;
     for (let i = -1; i <= 1; i++) {
       for (let j = -1; j <= 1; j += 2) {
@@ -454,8 +493,10 @@ function createBuildingVisual(kind, color, factionId) {
         addCylinder(launcher, .17, .17, .12, 8, i * .36, j * .19, 1.56, color);
       }
     }
-    group.add(launcher);
+    launcherYaw.add(launcher);
+    addBox(launcher, .34, .26, 1.2, 0, -.34, -.15, '#3c453e');
     addBox(group, .18, 1.0, .18, 1.85, .8, 1.0, color);
+    for (const [sx, sz] of [[-1.9, 1.5], [-1.2, 1.9], [1.9, 1.4]]) addBox(group, .55, .26, .38, sx, .38, sz, '#8d8563');
   } else if (kind === 'logistics') {
     addBox(group, 4.4, .3, 3.9, 0, .17, 0, '#2a383b');
     addBox(group, 3.6, 1.7, 2.3, -.4, 1.05, -.6, dark);
@@ -559,118 +600,211 @@ function createUnitVisual(kind, color, factionId = 'us') {
     tip.rotation.x = -.32;
     addBox(group, .3, .22, .55, .05, .78, -.05, metal);
   } else if (kind === 'heli') {
-    addBox(group, 1.0, .62, 1.9, 0, .05, .15, dark);
-    const nose = addBox(group, .82, .5, .6, 0, .02, 1.3, color);
-    nose.rotation.x = .18;
-    addBox(group, .3, .24, 1.7, 0, .2, -1.55, dark);
-    addBox(group, .7, .08, .1, 0, .38, -2.35, color).rotation.z = 0;
+    // AH-64 / Mi-28 style attack helicopter
+    addBox(group, .95, .58, 1.85, 0, .06, .15, dark);
+    const nose = addBox(group, .78, .46, .65, 0, .03, 1.25, color);
+    nose.rotation.x = .16;
+    const sensor = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), makeMaterial('#2b332e'));
+    sensor.position.set(0, -.05, 1.62);
+    sensor.castShadow = true;
+    group.add(sensor);
+    addBox(group, .1, .1, .5, 0, -.02, 1.95, '#c9cdb0');
+    addCylinder(group, .07, .08, .42, 8, 0, -.22, 1.3, metal).rotation.x = Math.PI / 2;
+    addBox(group, .12, .12, .5, 0, -.22, 1.62, '#2b332e');
+    const canopy = addBox(group, .58, .3, .65, 0, .34, .9, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .3 });
+    canopy.rotation.x = .1;
+    for (const side of [-1, 1]) {
+      addBox(group, .04, .34, .62, side * .49, .1, .1, dark);
+      addBox(group, .02, .18, .26, side * .5, .18, .28, '#a8d8d2', { emissive: 0x143430, emissiveIntensity: .25 });
+      addBox(group, .72, .09, .34, side * .76, .02, .12, color);
+      addBox(group, .18, .18, .6, side * .78, -.06, .18, metal);
+      for (let i = 0; i < 2; i++) {
+        addCylinder(group, .12, .12, .55, 8, side * 1.02, -.12 - i * .18, .12, '#3c453e').rotation.x = Math.PI / 2;
+        addCylinder(group, .05, .05, .08, 6, side * 1.02, -.12 - i * .18, .42, '#20261f').rotation.x = Math.PI / 2;
+      }
+      addBox(group, .16, .12, .5, side * .5, -.08, -.15, '#3c453e');
+      addBox(group, .07, .07, 1.5, side * .55, -.55, .2, metal);
+      addBox(group, .07, .42, .07, side * .55, -.34, .78, metal);
+      addBox(group, .07, .42, .07, side * .55, -.34, -.35, metal);
+      addBox(group, .06, .06, .1, side * .62, .05, -.4, side > 0 ? '#f26a5f' : '#6fe0a8', { emissive: side > 0 ? 0xff5a50 : 0x59e0a0, emissiveIntensity: 1 });
+      addBox(group, .3, .26, .55, side * .32, .34, -.55, '#39423b');
+      const exhaust = addBox(group, .22, .18, .22, side * .34, .32, -.85, '#232a24');
+      exhaust.rotation.x = .2;
+    }
+    addBox(group, .28, .22, 1.7, 0, .18, -1.5, dark);
+    addBox(group, .12, .5, .4, 0, .42, -2.35, dark);
+    addBox(group, .5, .06, .22, 0, .4, -2.25, color);
     const tailRotor = new THREE.Group();
-    tailRotor.position.set(.18, .62, -2.3);
-    addBox(tailRotor, .06, .85, .12, 0, 0, 0, '#cfd3b5');
-    addBox(tailRotor, .06, .12, .85, 0, 0, 0, '#cfd3b5');
+    tailRotor.position.set(.16, .5, -2.32);
+    addBox(tailRotor, .05, .8, .11, 0, 0, 0, '#cfd3b5');
+    addBox(tailRotor, .05, .11, .8, 0, 0, 0, '#cfd3b5');
     group.add(tailRotor);
     group.userData.tailRotor = tailRotor;
-    const cockpit = addBox(group, .62, .34, .62, 0, .3, .95, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
-    cockpit.rotation.x = .12;
     const rotor = new THREE.Group();
-    rotor.position.set(0, .55, .1);
-    addCylinder(rotor, .11, .14, .3, 8, 0, .1, 0, metal);
+    rotor.position.set(0, .62, .1);
+    addCylinder(rotor, .12, .16, .26, 8, 0, 0, 0, metal);
+    addCylinder(rotor, .3, .3, .06, 10, 0, -.08, 0, '#4c564d');
     for (let i = 0; i < 2; i++) {
-      const blade = addBox(rotor, 3.0, .03, .17, 0, .24, 0, '#c9cdb0');
+      const blade = addBox(rotor, 3.2, .02, .15, 0, .1, 0, '#c9cdb0');
       blade.rotation.y = (i * Math.PI) / 2;
     }
     group.add(rotor);
     group.userData.rotor = rotor;
-    for (const side of [-1, 1]) {
-      addBox(group, .55, .1, .34, side * .74, .02, .1, color);
-      addCylinder(group, .11, .11, .62, 8, side * .98, -.08, .1, metal).rotation.x = Math.PI / 2;
-      addBox(group, .07, .07, 1.4, side * .55, -.55, .15, metal);
-      addBox(group, .07, .45, .07, side * .55, -.32, .72, metal);
-      addBox(group, .07, .45, .07, side * .55, -.32, -.42, metal);
-    }
+    addBox(group, .05, .4, .05, 0, .5, -1.35, '#c9cdb0');
   } else if (kind === 'jet') {
-    addBox(group, .72, .44, 3.0, 0, .1, 0, color);
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(.36, .95, 10), makeMaterial(color));
+    // F-16 / Su-35 style multirole fighter
+    addBox(group, .7, .4, 3.0, 0, .12, .05, color);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(.34, 1.0, 10), makeMaterial(color));
     nose.rotation.x = Math.PI / 2;
-    nose.position.set(0, .1, 1.9);
+    nose.position.set(0, .12, 1.95);
+    nose.castShadow = true;
     group.add(nose);
-    const canopy = addBox(group, .42, .26, .95, 0, .38, .72, '#a8e3dc', { emissive: 0x1e3b38, emissiveIntensity: .3 });
-    canopy.rotation.x = -.08;
-    addBox(group, 2.6, .07, .9, 0, -.02, -.35, dark);
+    const canopy = addBox(group, .4, .26, .9, 0, .38, .78, '#a8e3dc', { emissive: 0x1e3b38, emissiveIntensity: .35 });
+    canopy.rotation.x = -.06;
+    addBox(group, .42, .04, .5, 0, .26, .35, dark);
     for (const side of [-1, 1]) {
-      addBox(group, 1.1, .06, .55, side * 1.62, -.02, -.6, color);
-      addBox(group, .42, .05, .42, side * 1.1, .04, -.25, color);
-      addBox(group, .12, .55, .8, side * .34, .38, -1.15, dark);
-      addBox(group, .3, .3, .55, side * .58, -.06, -.35, metal);
+      addBox(group, .28, .3, .8, side * .42, .02, .35, dark);
+      addBox(group, .16, .2, .1, side * .42, .02, .78, '#20261f');
+      addBox(group, .9, .06, .5, side * 1.7, .02, -.5, color);
+      for (const pz of [-.1, -.5]) {
+        addBox(group, .16, .04, .12, side * 1.1, -.06, pz, metal);
+        addBox(group, .16, .04, .12, side * 1.45, -.06, pz, metal);
+      }
+      addBox(group, .05, .05, .55, side * 1.1, -.1, -.3, '#d7dcc2');
+      addBox(group, .05, .05, .55, side * 1.45, -.1, -.3, '#d7dcc2');
+      addBox(group, .05, .35, .5, side * 1.62, .1, -.4, metal);
+      addBox(group, .16, .28, .5, side * .3, .25, .05, '#2a332c');
     }
-    addBox(group, .62, .38, .35, 0, .1, -1.62, metal);
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(.3, .9, 8), new THREE.MeshBasicMaterial({ color: 0xffb35e, transparent: true, opacity: .75 }));
+    addBox(group, 2.7, .07, .85, 0, .02, -.3, dark);
+    addBox(group, .1, .55, .55, 0, .38, -1.35, color);
+    addBox(group, .34, .12, .42, 0, .64, -1.5, dark);
+    addBox(group, 1.3, .05, .35, 0, .08, -1.5, color);
+    addBox(group, .5, .3, .35, 0, .12, -1.65, metal);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(.28, 1.0, 8), new THREE.MeshBasicMaterial({ color: 0xffb35e, transparent: true, opacity: .8, depthWrite: false }));
     flame.rotation.x = -Math.PI / 2;
-    flame.position.set(0, .1, -2.2);
+    flame.position.set(0, .12, -2.15);
     group.add(flame);
+    group.userData.flame = flame;
+    addBox(group, .06, .05, .12, .95, .06, -.2, '#f26a5f', { emissive: 0xff5a50, emissiveIntensity: 1 });
+    addBox(group, .06, .05, .12, -.95, .06, -.2, '#6fe0a8', { emissive: 0x59e0a0, emissiveIntensity: 1 });
   } else if (kind === 'mlrs') {
-    addBox(group, 1.35, .4, 2.9, 0, .62, 0, dark);
-    addBox(group, 1.3, .78, .85, 0, .98, 1.0, color);
-    const glass = addBox(group, 1.05, .3, .08, 0, 1.12, 1.44, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
-    glass.rotation.x = 0;
-    addBox(group, 1.45, .18, 1.75, 0, .8, -.7, metal);
+    // HIMARS / Smerch style truck with an elevating rocket pod
+    addBox(group, 1.35, .4, 2.95, 0, .62, 0, dark);
+    addBox(group, 1.3, .82, .88, 0, 1.0, 1.02, color);
+    addBox(group, 1.06, .3, .06, 0, 1.16, 1.47, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
+    addBox(group, 1.22, .16, .12, 0, .62, 1.52, metal);
+    addBox(group, .5, .18, .08, 0, .84, 1.5, '#20261f');
+    for (const side of [-1, 1]) {
+      addBox(group, .14, .1, .06, side * .52, .9, 1.5, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .8 });
+      addBox(group, .3, .18, .08, side * .52, .68, 1.5, '#8f8a6a');
+      addCylinder(group, .15, .15, .8, 8, side * .78, .62, .4, '#4a544c').rotation.x = Math.PI / 2;
+    }
+    addBox(group, 1.45, .16, 1.85, 0, .82, -.72, metal);
+    addBox(group, .1, .34, .1, .62, 1.18, .5, '#4a544c');
+    const launcher = new THREE.Group();
+    group.add(launcher);
+    group.userData.turret = launcher;
     const pod = new THREE.Group();
-    pod.position.set(0, 1.3, -.6);
-    pod.rotation.x = -.46;
-    addBox(pod, 1.2, .62, 1.45, 0, 0, 0, steel);
+    pod.position.set(0, 1.34, -.62);
+    pod.rotation.x = -.44;
+    launcher.add(pod);
+    addBox(pod, 1.24, .66, 1.5, 0, 0, 0, steel);
+    addBox(pod, 1.3, .1, .12, 0, .38, .72, '#2f3a32');
     for (let i = -1; i <= 1; i++) {
       for (let j = -1; j <= 1; j += 2) {
-        addCylinder(pod, .11, .11, 1.5, 7, i * .34, j * .17, .12, '#2b332e');
+        addCylinder(pod, .11, .11, 1.55, 7, i * .36, j * .17, .1, '#2b332e');
+        addCylinder(pod, .06, .06, .1, 6, i * .36, j * .17, .88, '#20261f').rotation.x = Math.PI / 2;
       }
     }
-    group.add(pod);
+    addBox(pod, .9, .2, .12, 0, -.36, -.72, '#4a544c');
     for (const side of [-1, 1]) {
-      for (const z of [1.0, -.35, -1.0]) wheel(side * .74, .29, z, .27);
+      for (const z of [1.05, -.3, -1.02]) wheel(side * .74, .29, z, .27);
+      addBox(group, .1, .4, .1, side * .6, .3, -1.35, metal);
+      addBox(group, .18, .06, .4, side * .6, .12, -1.2, metal);
     }
     addBox(group, .1, .1, .55, 0, 1.6, -1.55, color);
+    addBox(group, .05, .5, .05, -.5, 1.15, -.9, '#c9cdb0');
   } else if (kind === 'ifv') {
+    // Bradley / BMP style infantry fighting vehicle
     addBox(group, 1.62, .52, 2.55, 0, .64, 0, dark);
     addBox(group, 1.45, .42, 1.3, 0, .96, .6, color);
-    const turret = addBox(group, .85, .4, .9, 0, 1.2, -.2, steel);
-    turret.rotation.x = 0;
-    addBox(group, .13, .13, 1.15, 0, 1.3, .49, '#c3c8a4');
-    addBox(group, .34, .28, .52, .45, 1.36, -.25, metal);
-    addCylinder(group, .09, .09, .55, 7, .45, 1.42, .02, '#2b332e').rotation.x = -.15;
     for (const side of [-1, 1]) {
-      for (const z of [.9, -.75]) wheel(side * .82, .31, z, .29, .24);
+      addBox(group, .12, .36, 2.2, side * .84, .62, 0, color);
+      addBox(group, .12, .1, .5, side * .7, .82, 1.1, '#20261f');
+      addBox(group, .18, .1, .06, side * .52, .86, 1.3, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .8 });
     }
     addBox(group, 1.3, .18, .5, 0, 1.02, -1.15, metal);
+    addBox(group, 1.46, .2, .1, 0, .62, -1.32, metal);
+    const turret = new THREE.Group();
+    group.add(turret);
+    group.userData.turret = turret;
+    addBox(turret, .9, .4, .95, 0, 1.2, -.2, steel);
+    addBox(turret, .5, .26, .3, 0, 1.42, -.35, dark);
+    addBox(turret, .14, .14, 1.2, 0, 1.28, .5, '#c3c8a4');
+    addCylinder(turret, .09, .09, .4, 7, 0, 1.28, 1.18, '#2b332e').rotation.x = Math.PI / 2;
+    for (const side of [-1, 1]) {
+      addCylinder(turret, .1, .1, .55, 8, side * .38, 1.36, -.25, '#3c453e').rotation.x = Math.PI / 2;
+      addCylinder(turret, .06, .06, .12, 6, side * .38, 1.36, .1, '#20261f').rotation.x = Math.PI / 2;
+      addBox(turret, .1, .1, .3, side * .42, 1.18, .22, '#4c564d');
+    }
+    addBox(turret, .12, .12, .3, 0, 1.55, -.45, '#20261f');
+    for (const side of [-1, 1]) for (const z of [.9, -.75]) wheel(side * .82, .31, z, .29, .24);
   } else if (kind === 'tank') {
     const eastern = ['ru', 'cn', 'ir'].includes(factionId);
-    addBox(group, 1.9, .42, 2.55, 0, .55, 0, dark);
+    addBox(group, 1.95, .42, 2.55, 0, .55, 0, dark);
     for (const side of [-1, 1]) {
-      addBox(group, .34, .46, 2.4, side * .98, .44, 0, '#2b322d');
-      for (const z of [-.85, -.3, .3, .85]) wheel(side * .98, .27, z, .25, .22);
-      addBox(group, .12, .16, 2.2, side * 1.16, .66, 0, color);
+      addBox(group, .36, .5, 2.5, side * 1.0, .44, 0, '#2b322d');
+      for (let i = -2; i <= 2; i++) wheel(side * 1.0, .27, i * .5, .25, .22);
+      addBox(group, .1, .22, 2.3, side * 1.19, .72, 0, color);
+      for (const z of [-.75, 0, .75]) addBox(group, .16, .14, .32, side * 1.24, .87, z, '#4e5a4a');
+      addBox(group, .12, .1, .16, side * .66, .8, 1.22, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .85 });
     }
+    addBox(group, 1.7, .26, .5, 0, .7, 1.2, dark);
+    addBox(group, .5, .08, .4, -.42, .86, .72, color);
+    addBox(group, .4, .12, .1, .62, .42, 1.32, '#4a544c');
+    addBox(group, .4, .12, .1, -.62, .42, 1.32, '#4a544c');
+    addBox(group, 1.9, .1, .16, 0, .38, -1.3, '#20261f');
+    addBox(group, .5, .25, .25, .68, .85, -.95, '#4e5a4a');
+    addBox(group, .06, .5, .06, -.84, 1.14, -.9, '#c9cdb0');
+    const turret = new THREE.Group();
+    group.add(turret);
+    group.userData.turret = turret;
     if (eastern) {
       const dome = new THREE.Mesh(new THREE.SphereGeometry(.62, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), makeMaterial(color));
       dome.position.set(0, .98, -.15);
       dome.scale.set(1.1, .62, 1.25);
-      group.add(dome);
-      addCylinder(group, .34, .4, .22, 10, 0, .99, -.18, steel);
-      addBox(group, .17, .17, 1.75, 0, 1.03, .75, '#c6ccb0');
-      addCylinder(group, .1, .1, .34, 8, 0, 1.12, 1.57, metal).rotation.x = Math.PI / 2;
-      addBox(group, .55, .16, .75, .62, 1.16, -.32, steel);
+      dome.castShadow = true;
+      turret.add(dome);
+      addCylinder(turret, .34, .4, .22, 10, 0, .99, -.18, steel);
+      addBox(turret, .18, .18, 1.9, 0, 1.03, .82, '#c6ccb0');
+      addCylinder(turret, .1, .1, .4, 8, 0, 1.03, 1.78, metal).rotation.x = Math.PI / 2;
+      addBox(turret, .26, .24, .3, 0, 1.03, 1.92, '#2b332e');
+      addBox(turret, .55, .16, .75, .62, 1.16, -.32, steel);
+      addCylinder(turret, .24, .28, .2, 10, -.5, 1.2, -.2, steel);
       for (const side of [-1, 1]) {
-        for (const z of [-.6, 0, .6]) addBox(group, .34, .12, .2, side * .78, .83, z, '#4e5a4a');
+        for (const z of [-.6, 0, .6]) addBox(turret, .34, .12, .2, side * .7, .83, z, '#4e5a4a');
+        for (const z of [.45, .62, .79]) addCylinder(turret, .055, .055, .2, 6, side * .62, 1.12, z, '#20261f').rotation.x = Math.PI / 2;
       }
+      addBox(turret, .2, .2, .3, 0, 1.42, -.7, '#3c453e');
+      addBox(turret, .05, .5, .05, .55, 1.42, -.55, '#c9cdb0');
     } else {
-      addBox(group, 1.25, .42, 1.55, 0, 1.04, -.12, color);
-      const front = addBox(group, 1.05, .3, .5, 0, .99, .68, color);
+      addBox(turret, 1.3, .44, 1.65, 0, 1.06, -.12, color);
+      const front = addBox(turret, 1.05, .3, .55, 0, 1.0, .74, color);
       front.rotation.x = .35;
-      addBox(group, .18, .18, 1.8, 0, 1.16, .95, '#c6ccb0');
-      addCylinder(group, .1, .1, .38, 8, 0, 1.24, 1.78, metal).rotation.x = Math.PI / 2;
-      addCylinder(group, .27, .31, .22, 10, .38, 1.34, .35, steel);
-      addBox(group, .32, .12, .34, .38, 1.46, .35, '#c3c8a4');
-      addBox(group, .18, .1, .38, .38, 1.5, .35, '#2d3a34');
-      addBox(group, .7, .2, .7, -.3, 1.3, -.6, metal);
-      for (const side of [-1, 1]) addBox(group, .2, .22, .3, side * .78, 1.2, -.75, '#b7bea0');
+      addBox(turret, .18, .18, 1.95, 0, 1.14, 1.0, '#c6ccb0');
+      addCylinder(turret, .1, .1, .4, 8, 0, 1.14, 1.95, metal).rotation.x = Math.PI / 2;
+      addBox(turret, .26, .22, .3, 0, 1.14, 2.08, '#2b332e');
+      addCylinder(turret, .27, .31, .22, 10, .4, 1.34, .2, steel);
+      addBox(turret, .34, .12, .34, .4, 1.46, .2, '#c3c8a4');
+      addBox(turret, .18, .1, .38, .4, 1.5, .2, '#2d3a34');
+      addBox(turret, .7, .2, .7, -.35, 1.32, -.55, metal);
+      addBox(turret, .5, .16, .6, -.35, 1.46, -.55, '#4e5a4a');
+      for (const side of [-1, 1]) {
+        addBox(turret, .2, .22, .3, side * .72, 1.2, -.7, '#b7bea0');
+        for (const z of [.15, .32, .49]) addCylinder(turret, .055, .055, .2, 6, side * .58, 1.12, z, '#20261f').rotation.x = Math.PI / 2;
+      }
+      addBox(turret, .05, .55, .05, -.55, 1.45, -.5, '#c9cdb0');
+      addBox(turret, .1, .1, .4, .3, 1.53, -.2, '#20261f');
     }
   } else if (kind === 'artillery') {
     addBox(group, 1.35, .42, 2.0, 0, .54, 0, dark);
@@ -684,16 +818,34 @@ function createUnitVisual(kind, color, factionId = 'us') {
       }
     }
   } else {
-    // scout: Humvee-style light vehicle with a pintle-mounted machine gun
+    // Humvee-style light vehicle with a ring-mounted machine gun
     addBox(group, 1.5, .48, 2.2, 0, .66, 0, color);
-    addBox(group, 1.32, .34, .9, 0, 1.02, -.28, dark);
+    addBox(group, 1.3, .36, .95, 0, 1.03, -.3, dark);
     const windshield = addBox(group, 1.18, .28, .08, 0, 1.12, .22, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
     windshield.rotation.x = -.22;
-    addBox(group, 1.5, .12, .55, 0, .48, 1.05, metal);
-    addBox(group, 1.42, .1, .28, 0, .5, -1.12, metal);
-    addBox(group, .5, .12, .4, .42, 1.26, -.5, metal);
-    addBox(group, .08, .34, .08, .42, 1.45, -.5, '#2b332e');
-    addBox(group, .1, .1, .62, .42, 1.58, -.2, '#2b332e');
+    addBox(group, 1.5, .12, .55, 0, .48, 1.02, metal);
+    addBox(group, 1.42, .1, .3, 0, .5, -1.1, metal);
+    addBox(group, .52, .2, .08, 0, .72, 1.12, '#20261f');
+    for (const side of [-1, 1]) {
+      addBox(group, .14, .14, .56, side * .77, .72, .05, dark);
+      addBox(group, .02, .2, .46, side * .785, .84, .05, '#a8d8d2', { emissive: 0x143430, emissiveIntensity: .25 });
+      addBox(group, .08, .04, .18, side * .8, .96, .35, '#20261f');
+      addBox(group, .16, .1, .06, side * .5, .74, 1.29, '#ffe6a8', { emissive: 0xffe0a0, emissiveIntensity: .85 });
+      addBox(group, .12, .08, .05, side * .58, .68, -1.12, '#f26a5f', { emissive: 0xff5a50, emissiveIntensity: .8 });
+      addBox(group, 1.2, .05, .05, side * .2, 1.22, -.35, '#20261f');
+      addBox(group, 1.2, .05, .05, side * .2, 1.22, -.95, '#20261f');
+    }
+    const spare = addCylinder(group, .3, .3, .18, 12, 0, .82, -1.2, '#20261f');
+    spare.rotation.x = Math.PI / 2;
+    addBox(group, .9, .18, .2, 0, .92, 1.02, '#c5c9a6');
+    addBox(group, .04, .7, .04, -.66, .95, -.55, '#c9cdb0');
+    const turret = new THREE.Group();
+    turret.position.set(.42, 0, -.5);
+    group.add(turret);
+    group.userData.turret = turret;
+    addBox(turret, .34, .1, .34, 0, 1.3, 0, metal);
+    addBox(turret, .08, .34, .08, 0, 1.47, 0, '#2b332e');
+    addBox(turret, .1, .1, .62, 0, 1.6, .28, '#2b332e');
     for (const side of [-1, 1]) {
       for (const z of [.72, -.75]) {
         const mesh = addCylinder(group, .3, .3, .24, 12, side * .78, .31, z, '#202722');
@@ -701,8 +853,19 @@ function createUnitVisual(kind, color, factionId = 'us') {
         addBox(group, .12, .24, .24, side * .82, .66, z, dark);
       }
     }
-    addBox(group, .7, .18, .2, 0, .92, 1.05, '#c5c9a6');
   }
+  // Tiny details (lights, antennas, smoke tubes) do not need to cast shadows;
+  // skipping them keeps the 1080p shadow pass cheap on laptops and phones.
+  group.traverse((child) => {
+    if (!child.isMesh) return;
+    const params = child.geometry?.parameters;
+    if (!params) return;
+    const size = Math.max(params.width || 0, params.height || 0, params.depth || 0, (params.radiusTop || 0) * 2, (params.radius || 0) * 2);
+    if (size > 0 && size < .2) {
+      child.castShadow = false;
+      child.receiveShadow = false;
+    }
+  });
   return group;
 }
 
@@ -805,6 +968,8 @@ function createUnit(kind, owner, x, z, factionId = owner === 'player' ? selected
     canHitAir: !!info.canHitAir, antiAirOnly: false, splash: info.splash || 0, missile: !!info.missile,
     air: !!info.air, altitude: info.air ? info.altitude : 0, baseAltitude: info.air ? info.altitude : 0,
     rotor: group.userData.rotor || null, tailRotor: group.userData.tailRotor || null,
+    turret: group.userData.turret || null, flame: group.userData.flame || null,
+    bank: 0, bankTarget: 0, pitchTarget: 0,
     bobSeed: Math.random() * Math.PI * 2,
   };
   if (owner === 'enemy' && entity.air && enemyAirSpawned[entity.kind] !== undefined) enemyAirSpawned[entity.kind] += 1;
@@ -839,8 +1004,17 @@ function clearEntities() {
   }
   buildings.length = 0;
   units.length = 0;
-  effects.forEach((effect) => { scene.remove(effect.object); disposeObject(effect.object); });
+  effects.forEach((effect) => {
+    scene.remove(effect.object);
+    if (effect.sharedGeometry) {
+      if (Array.isArray(effect.object.material)) effect.object.material.forEach((material) => material.dispose());
+      else effect.object.material?.dispose();
+    } else {
+      disposeObject(effect.object);
+    }
+  });
   effects.length = 0;
+  clearProjectiles();
   selectedEntity = null;
   if (placementGhost) {
     scene.remove(placementGhost);
@@ -1735,12 +1909,18 @@ function updateMovement(dt) {
       goal = { x: unit.attackTarget.x, z: unit.attackTarget.z };
       unit.moveTarget = goal;
     }
-    if (!goal) continue;
+    if (!goal) {
+      unit.bankTarget = 0;
+      unit.pitchTarget = 0;
+      continue;
+    }
     const dx = goal.x - unit.x;
     const dz = goal.z - unit.z;
     const d = Math.hypot(dx, dz);
     if (d < .28) {
       unit.moveTarget = null;
+      unit.bankTarget = 0;
+      unit.pitchTarget = 0;
       if (unit.staging) unit.holdPosition = true;
       continue;
     }
@@ -1752,9 +1932,18 @@ function updateMovement(dt) {
     unit.z += dz / d * step;
     const lift = unit.air ? unit.altitude + Math.sin(elapsed * 2.2 + unit.bobSeed) * .16 : 0;
     unit.group.position.set(unit.x, lift, unit.z);
-    unit.group.rotation.y = Math.atan2(dx, dz);
+    const heading = Math.atan2(dx, dz);
+    if (unit.air) {
+      const turn = Math.atan2(Math.sin(heading - unit.group.rotation.y), Math.cos(heading - unit.group.rotation.y));
+      unit.bankTarget = THREE.MathUtils.clamp(-turn * 8, -.55, .55);
+      unit.pitchTarget = unit.kind === 'jet' ? -.075 : -.05;
+    }
+    unit.group.rotation.y = heading;
     // Keep the health bar facing the (fixed) camera instead of spinning with the chassis.
-    if (unit.healthBar?.group) unit.healthBar.group.rotation.y = -unit.group.rotation.y;
+    if (unit.healthBar?.group) {
+      unit.healthBar.group.rotation.y = -heading;
+      unit.healthBar.group.rotation.z = -(unit.bank || 0);
+    }
   }
 }
 
@@ -1831,10 +2020,17 @@ function updateCombat() {
       if (attackerFaction.turretMult && (attacker.kind === 'turret' || attacker.kind === 'bastion')) damage *= attackerFaction.turretMult;
       if (attacker.owner === 'player' && playerBuildingCount('bastion') > 0 && attacker.entityType === 'building' && attacker.kind === 'turret') damage *= 1.2;
       if (attacker.owner === 'player' && playerFaction().ability === 'airstrike' && (playerBuildingCount('airfield') > 0 || playerBuildingCount('airbase') > 0)) damage *= 1.1;
-      createShot(attacker, target);
-      sound.shot(attacker.owner === 'player');
-      damageEntity(target, damage, attacker);
-      if (attacker.splash > 0) {
+      if (attacker.missile) {
+        const salvo = attacker.kind === 'mlrs' ? 3 : 1;
+        const missileDamage = salvo > 1 ? damage * .42 : damage;
+        for (let i = 0; i < salvo; i++) launchMissile(attacker, target, missileDamage, i);
+        sound.missile(attacker.owner === 'player');
+      } else {
+        createShot(attacker, target);
+        sound.shot(attacker.owner === 'player');
+        damageEntity(target, damage, attacker);
+      }
+      if (attacker.splash > 0 && !attacker.missile) {
         for (const splashTarget of [...units, ...buildings]) {
           if (splashTarget === target || !canTargetEntity(attacker, splashTarget)) continue;
           if (Math.hypot(splashTarget.x - target.x, splashTarget.z - target.z) <= attacker.splash) {
@@ -1861,7 +2057,239 @@ function createShot(attacker, target) {
   });
   const line = new THREE.Line(geometry, material);
   scene.add(line);
-  effects.push({ object: line, remaining: attacker.missile ? .3 : .16 });
+  effects.push({ object: line, remaining: .16 });
+  spawnMuzzleFlash(new THREE.Vector3(attacker.x, startY, attacker.z), attacker.factionId);
+}
+
+function missileAimPoint(entity) {
+  const y = entity.air ? entity.altitude + .1 : entity.entityType === 'building' ? 1.5 : .85;
+  return new THREE.Vector3(entity.x, y, entity.z);
+}
+
+let glowTexture = null;
+function getGlowTexture() {
+  if (glowTexture) return glowTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255,244,206,1)');
+  gradient.addColorStop(.4, 'rgba(255,196,104,.6)');
+  gradient.addColorStop(1, 'rgba(255,150,60,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 64, 64);
+  glowTexture = new THREE.CanvasTexture(canvas);
+  return glowTexture;
+}
+
+function createMissileMesh(factionId) {
+  const group = new THREE.Group();
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x414a42, metalness: .45, roughness: .42 });
+  const body = new THREE.Mesh(missileBodyGeometry, bodyMaterial);
+  body.rotation.x = Math.PI / 2;
+  group.add(body);
+  const nose = new THREE.Mesh(missileNoseGeometry, new THREE.MeshStandardMaterial({ color: 0xdde3cc, metalness: .25, roughness: .55 }));
+  nose.rotation.x = Math.PI / 2;
+  nose.position.z = .33;
+  group.add(nose);
+  for (let i = 0; i < 2; i++) {
+    const fin = new THREE.Mesh(missileFinGeometry, bodyMaterial);
+    fin.position.z = -.2;
+    fin.rotation.z = (i * Math.PI) / 2;
+    group.add(fin);
+  }
+  const band = new THREE.Mesh(missileBandGeometry, new THREE.MeshBasicMaterial({ color: new THREE.Color(factionById(factionId).color) }));
+  band.rotation.x = Math.PI / 2;
+  band.position.z = .12;
+  group.add(band);
+  const flame = new THREE.Mesh(missileFlameGeometry, new THREE.MeshBasicMaterial({ color: 0xffc36e, transparent: true, opacity: .95, depthWrite: false }));
+  flame.position.z = -.36;
+  group.add(flame);
+  group.userData.flame = flame;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: getGlowTexture(),
+    color: 0xffc879,
+    transparent: true,
+    opacity: .9,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  glow.scale.setScalar(1.05);
+  group.add(glow);
+  group.scale.setScalar(1.35);
+  return group;
+}
+
+function missileSpeedFor(attacker) {
+  if (attacker.entityType === 'building') return 30;
+  return { atgm: 17, mlrs: 16, heli: 26, jet: 34 }[attacker.kind] || 22;
+}
+
+function launchMissile(attacker, target, damage, salvoIndex = 0) {
+  const startY = attacker.entityType === 'building' ? 2.25 : attacker.air ? attacker.altitude : 1.15;
+  const start = new THREE.Vector3(attacker.x, startY, attacker.z);
+  const aim = missileAimPoint(target);
+  const dir = aim.clone().sub(start);
+  if (dir.lengthSq() < .0001) dir.set(0, .2, 1);
+  dir.normalize();
+  start.addScaledVector(dir, attacker.entityType === 'building' ? 1.5 : .85);
+  if (salvoIndex > 0) {
+    start.x += (Math.random() - .5) * .5;
+    start.z += (Math.random() - .5) * .5;
+  }
+  const isMlrs = attacker.kind === 'mlrs';
+  if (isMlrs) {
+    dir.set(dir.x * .5 + (Math.random() - .5) * .55, .95, dir.z * .5 + (Math.random() - .5) * .55).normalize();
+  }
+  const group = createMissileMesh(attacker.factionId);
+  group.position.copy(start);
+  group.quaternion.setFromUnitVectors(MISSILE_FORWARD, dir);
+  scene.add(group);
+  const trailArray = new Float32Array(22 * 3);
+  for (let i = 0; i < 22; i++) {
+    trailArray[i * 3] = start.x;
+    trailArray[i * 3 + 1] = start.y;
+    trailArray[i * 3 + 2] = start.z;
+  }
+  const trailGeometry = new THREE.BufferGeometry();
+  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailArray, 3));
+  const trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0xf6dfae, transparent: true, opacity: .5, depthWrite: false }));
+  scene.add(trail);
+  spawnMuzzleFlash(start, attacker.factionId);
+  projectiles.push({
+    attacker, target, damage, splash: attacker.splash || 0, owner: attacker.owner, factionId: attacker.factionId,
+    pos: start.clone(), dir: dir.clone(), aim: aim.clone(), speed: missileSpeedFor(attacker),
+    turn: isMlrs ? 1.7 : 7.5, age: 0, life: isMlrs ? 6.5 : 5,
+    group, trail, trailArray, trailGeometry,
+  });
+}
+
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const missile = projectiles[i];
+    missile.age += dt;
+    const target = missile.target && !missile.target.destroyed && missile.target.hp > 0 ? missile.target : null;
+    if (target) missile.aim.copy(missileAimPoint(target));
+    const toAim = missile.aim.clone().sub(missile.pos);
+    const distanceToAim = toAim.length();
+    if (distanceToAim > .0001) {
+      toAim.multiplyScalar(1 / distanceToAim);
+      missile.dir.lerp(toAim, Math.min(1, missile.turn * dt)).normalize();
+    }
+    missile.pos.addScaledVector(missile.dir, missile.speed * dt);
+    missile.puffTimer = (missile.puffTimer || 0) - dt;
+    if (missile.puffTimer <= 0) {
+      missile.puffTimer = .1;
+      spawnSmoke(missile.pos.x, missile.pos.y - .05, missile.pos.z, .055);
+    }
+    missile.group.position.copy(missile.pos);
+    missile.group.quaternion.setFromUnitVectors(MISSILE_FORWARD, missile.dir);
+    const flame = missile.group.userData.flame;
+    if (flame) flame.scale.setScalar(.8 + Math.random() * .45);
+    const positions = missile.trailArray;
+    positions.copyWithin(3, 0, positions.length - 3);
+    positions[0] = missile.pos.x;
+    positions[1] = missile.pos.y;
+    positions[2] = missile.pos.z;
+    missile.trailGeometry.attributes.position.needsUpdate = true;
+    const hit = target && missile.pos.distanceTo(missile.aim) <= Math.max(.6, missile.speed * dt * 1.15);
+    if (hit || missile.age >= missile.life) {
+      impactMissile(missile, hit ? target : null);
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+function impactMissile(missile, target) {
+  const point = missile.pos;
+  const big = missile.splash > 0;
+  spawnExplosion(point.x, point.z, big ? 3 : 1.5, point.y, big);
+  sound.impact();
+  if (target && !target.destroyed) damageEntity(target, missile.damage, missile.attacker);
+  if (missile.splash > 0) {
+    for (const other of [...units, ...buildings]) {
+      if (other === target || other.destroyed || other.owner === missile.owner) continue;
+      if (!canTargetEntity(missile.attacker, other)) continue;
+      if (Math.hypot(other.x - point.x, other.z - point.z) <= missile.splash) damageEntity(other, missile.damage * .45, missile.attacker);
+    }
+  }
+  scene.remove(missile.group);
+  missile.group.traverse((child) => {
+    const materials = Array.isArray(child.material) ? child.material : child.material ? [child.material] : [];
+    materials.forEach((material) => material.dispose());
+  });
+  scene.remove(missile.trail);
+  missile.trailGeometry.dispose();
+  missile.trail.material.dispose();
+}
+
+function clearProjectiles() {
+  for (const missile of projectiles) {
+    scene.remove(missile.group);
+    missile.group.traverse((child) => {
+      const materials = Array.isArray(child.material) ? child.material : child.material ? [child.material] : [];
+      materials.forEach((material) => material.dispose());
+    });
+    scene.remove(missile.trail);
+    missile.trailGeometry.dispose();
+    missile.trail.material.dispose();
+  }
+  projectiles.length = 0;
+}
+
+function spawnMuzzleFlash(position, factionId) {
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(.2, 8, 6),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(factionById(factionId).color).lerp(new THREE.Color(0xfff1c4), .65), transparent: true, opacity: .95, depthWrite: false }),
+  );
+  flash.position.copy(position);
+  scene.add(flash);
+  effects.push({ object: flash, remaining: .12, life: .12, fadeFrom: 1, scale: true, from: .7, to: 1.7 });
+}
+
+function spawnSmoke(x, y, z, size = .18) {
+  if (effects.length > 240) return;
+  const puff = new THREE.Mesh(smokeGeometry, new THREE.MeshBasicMaterial({ color: 0x454c45, transparent: true, opacity: .45, depthWrite: false }));
+  puff.position.set(x, y, z);
+  puff.scale.setScalar(size);
+  scene.add(puff);
+  effects.push({
+    object: puff, remaining: 1.5, life: 1.5, sharedGeometry: true,
+    vel: new THREE.Vector3((Math.random() - .5) * .45, .85 + Math.random() * .55, (Math.random() - .5) * .45),
+    gravity: -.15, scale: true, from: size, to: size * 3.1, fadeFrom: .45,
+  });
+}
+
+function spawnExplosion(x, z, radius = 2.2, y = .3, big = false) {
+  spawnBlast(x, z, radius, y);
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * .32, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffd58a, transparent: true, opacity: .95, depthWrite: false }),
+  );
+  flash.position.set(x, y + .1, z);
+  scene.add(flash);
+  effects.push({ object: flash, remaining: .3, life: .3, fadeFrom: .95, scale: true, from: .5, to: 1.8 });
+  const puffs = big ? 12 : 6;
+  for (let i = 0; i < puffs; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const size = radius * (.09 + Math.random() * .13);
+    const puff = new THREE.Mesh(smokeGeometry, new THREE.MeshBasicMaterial({
+      color: i % 3 === 0 ? 0xffa257 : 0x565c53,
+      transparent: true,
+      opacity: .85,
+      depthWrite: false,
+    }));
+    puff.position.set(x + Math.cos(angle) * radius * .16, y + .15 + Math.random() * .4, z + Math.sin(angle) * radius * .16);
+    puff.scale.setScalar(size);
+    scene.add(puff);
+    const life = .55 + Math.random() * .5;
+    effects.push({
+      object: puff, remaining: life, life, sharedGeometry: true,
+      vel: new THREE.Vector3(Math.cos(angle) * (1 + Math.random() * 2.6), 1.4 + Math.random() * 3.1, Math.sin(angle) * (1 + Math.random() * 2.6)),
+      gravity: 5.5, scale: true, from: size, to: size * 3.4, fadeFrom: .85,
+    });
+  }
 }
 
 function damageEntity(target, amount, attacker) {
@@ -1918,7 +2346,7 @@ function destroyEntity(entity, attacker) {
   if (selectedEntity === entity) setSelection(null);
   if (entity.owner === 'enemy') stats.kills += 1;
   else stats.losses += 1;
-  spawnBlast(entity.x, entity.z, entity.entityType === 'building' ? 3.2 : 2.1, entity.air ? entity.altitude : .14);
+  spawnExplosion(entity.x, entity.z, entity.entityType === 'building' ? 4.4 : 2.2, entity.air ? entity.altitude : .3, true);
   sound.explode();
   if (entity.kind === 'hq') {
     finishGame(entity.owner === 'enemy');
@@ -2210,20 +2638,61 @@ function updateEnemyAI(dt) {
   }
 }
 
+function updateDamageSmoke(dt) {
+  damageSmokeTimer -= dt;
+  if (damageSmokeTimer > 0) return;
+  damageSmokeTimer = .42;
+  let budget = 6;
+  for (const entity of [...buildings, ...units]) {
+    if (budget <= 0) break;
+    if (entity.destroyed || entity.hp > entity.maxHp * .45) continue;
+    if (Math.random() < .5) continue;
+    spawnSmoke(
+      entity.x,
+      entity.air ? entity.altitude + .2 : entity.entityType === 'building' ? 2.1 : .9,
+      entity.z,
+      entity.entityType === 'building' ? .34 : .16,
+    );
+    budget -= 1;
+  }
+}
+
+function updateTurretAim(entity, dt) {
+  const turret = entity.group?.userData.turret;
+  if (!turret) return;
+  let desired = turret.rotation.y;
+  const target = entity.attackTarget;
+  if (target && !target.destroyed && target.hp > 0) {
+    desired = Math.atan2(target.x - entity.x, target.z - entity.z);
+    if (entity.entityType === 'unit') desired -= entity.group.rotation.y;
+  } else if (entity.entityType === 'building') {
+    desired = Math.sin(elapsed * .45 + entity.x * .3) * .7;
+  }
+  const delta = Math.atan2(Math.sin(desired - turret.rotation.y), Math.cos(desired - turret.rotation.y));
+  turret.rotation.y += delta * Math.min(1, dt * 4.2);
+}
+
 function updateEffects(dt) {
   for (let i = effects.length - 1; i >= 0; i--) {
     const effect = effects[i];
     effect.remaining -= dt;
+    const life = effect.life || (effect.scale ? .7 : .16);
+    const ratio = Math.max(0, effect.remaining / life);
+    if (effect.vel) {
+      effect.vel.y -= (effect.gravity ?? 6) * dt;
+      effect.object.position.addScaledVector(effect.vel, dt);
+    }
     if (effect.scale) {
-      const progress = 1 - Math.max(0, effect.remaining) / .7;
-      effect.object.scale.setScalar(.6 + progress * .6);
-      effect.object.material.opacity = Math.max(0, effect.remaining / .7 * .6);
-    } else if (effect.object.material) {
-      effect.object.material.opacity = Math.max(0, effect.remaining / .16);
+      const from = effect.from ?? .6;
+      const to = effect.to ?? 1.2;
+      effect.object.scale.setScalar(from + (1 - ratio) * (to - from));
+    }
+    if (effect.object.material) {
+      effect.object.material.opacity = ratio * (effect.fadeFrom ?? (effect.scale ? .6 : 1));
     }
     if (effect.remaining <= 0) {
       scene.remove(effect.object);
-      effect.object.geometry?.dispose();
+      if (!effect.sharedGeometry) effect.object.geometry?.dispose();
       if (Array.isArray(effect.object.material)) effect.object.material.forEach((material) => material.dispose());
       else effect.object.material?.dispose();
       effects.splice(i, 1);
@@ -2240,6 +2709,8 @@ function updateGame(dt) {
   updateMovement(dt);
   updateUnitSeparation();
   updateCombat();
+  updateProjectiles(dt);
+  updateDamageSmoke(dt);
   updateEnemyAI(dt);
   if (elapsed - lastPlayerHitAt < 1.6 && elapsed - attackAlertAt > 14) {
     attackAlertAt = elapsed;
@@ -2352,11 +2823,31 @@ function animate(now) {
   lastFrame = now;
   toggleToastTimer(dt);
   if (gameStarted && !paused && !gameEnded) updateGame(dt);
+  if (!paused && !gameEnded) {
   for (const unit of units) {
     if (unit.destroyed) continue;
-    if (unit.air) unit.group.position.y = unit.altitude + Math.sin(elapsed * 2.2 + unit.bobSeed) * .16;
+    if (unit.air) {
+      unit.group.position.y = unit.altitude + Math.sin(elapsed * 2.2 + unit.bobSeed) * .16;
+      unit.bank = THREE.MathUtils.lerp(unit.bank || 0, unit.bankTarget || 0, Math.min(1, dt * 4));
+      unit.group.rotation.z = unit.bank;
+      unit.group.rotation.x = THREE.MathUtils.lerp(unit.group.rotation.x, unit.pitchTarget || 0, Math.min(1, dt * 3));
+      if (unit.healthBar?.group) unit.healthBar.group.rotation.z = -unit.bank;
+    }
     if (unit.rotor) unit.rotor.rotation.y += dt * 26;
     if (unit.tailRotor) unit.tailRotor.rotation.x += dt * 34;
+    if (unit.flame) {
+      unit.flame.scale.set(1 + Math.random() * .2, 1 + Math.random() * .2, .7 + Math.random() * .55);
+      unit.flame.material.opacity = .55 + Math.random() * .35;
+    }
+    updateTurretAim(unit, dt);
+  }
+  for (const building of buildings) {
+    const radar = building.group.userData.radar;
+    if (radar) radar.rotation.y += dt * 1.15;
+    const beacon = building.group.userData.beacon;
+    if (beacon) beacon.material.opacity = .35 + Math.sin(elapsed * 3.2 + building.x) * .3;
+    updateTurretAim(building, dt);
+  }
   }
   renderer.render(scene, camera);
 }
@@ -2382,6 +2873,19 @@ window.__frontline = {
   train: (kind) => { trainUnit(kind); return true; },
   spawn: (kind, owner, x, z) => createUnit(kind, owner, x, z, owner === 'player' ? selectedFactionId : enemyFactionId),
   hpOf: (kind, owner) => units.filter((unit) => unit.owner === owner && unit.kind === kind).map((unit) => Math.round(unit.hp)),
+  projectiles: () => projectiles.map((missile) => ({
+    owner: missile.owner,
+    target: missile.target?.kind || null,
+    x: Math.round(missile.pos.x * 10) / 10,
+    y: Math.round(missile.pos.y * 10) / 10,
+    z: Math.round(missile.pos.z * 10) / 10,
+    age: Math.round(missile.age * 100) / 100,
+  })),
+  render: () => ({
+    pixelRatio: renderer.getPixelRatio(),
+    width: Math.round(viewport.clientWidth * renderer.getPixelRatio()),
+    height: Math.round(viewport.clientHeight * renderer.getPixelRatio()),
+  }),
   rush: () => {
     const target = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
     if (!target) return false;
@@ -2416,6 +2920,7 @@ window.__frontline = {
       units: units.filter((unit) => unit.owner === 'enemy').map((unit) => ({ kind: unit.kind, hp: Math.round(unit.hp) })),
     },
     stats: { ...stats },
+    projectiles: projectiles.length,
   }),
 };
 
