@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import '@fontsource-variable/vazirmatn';
 import './style.css';
 
 const $ = (selector) => document.querySelector(selector);
@@ -35,17 +36,94 @@ const BUILDINGS = [
 ];
 
 const UNITS = [
-  { kind: 'scout', name: 'خودروی گشتی', icon: '◈', cost: 320, hp: 360, speed: 4.4, range: 7, scan: 10, damage: 23, cooldown: .9, requires: 'barracks', requiresName: 'پادگان' },
-  { kind: 'engineer', name: 'مهندس', icon: '⚒', cost: 240, hp: 260, speed: 3.5, range: 0, scan: 0, damage: 0, cooldown: 0, requires: 'barracks', requiresName: 'پادگان' },
-  { kind: 'tank', name: 'تانک زرهی', icon: '▣', cost: 580, hp: 820, speed: 2.7, range: 9, scan: 12, damage: 47, cooldown: 1.35, requires: 'factory', requiresName: 'کارخانه' },
-  { kind: 'artillery', name: 'توپخانه', icon: '➤', cost: 690, hp: 500, speed: 1.9, range: 15, scan: 17, damage: 62, cooldown: 2.0, requires: 'factory', requiresName: 'کارخانه' },
+  { kind: 'scout', name: 'خودروی گشتی', icon: '◈', cost: 320, hp: 360, speed: 4.4, range: 7, scan: 10, damage: 23, cooldown: .9, buildTime: 5, requires: 'barracks', requiresName: 'پادگان', description: 'سریع و ارزان؛ برای شناسایی و مزاحمت' },
+  { kind: 'engineer', name: 'مهندس', icon: '⚒', cost: 240, hp: 260, speed: 3.5, range: 0, scan: 6, damage: 0, cooldown: 0, buildTime: 4, repair: 15, requires: 'barracks', requiresName: 'پادگان', description: 'ترمیم خودکار ساختمان‌ها و واحدهای نزدیک' },
+  { kind: 'tank', name: 'تانک زرهی', icon: '▣', cost: 580, hp: 820, speed: 2.7, range: 9, scan: 12, damage: 47, cooldown: 1.35, buildTime: 9, requires: 'factory', requiresName: 'کارخانه', description: 'ستون فقرات خط مقدم' },
+  { kind: 'artillery', name: 'توپخانه', icon: '➤', cost: 690, hp: 500, speed: 1.9, range: 15, scan: 17, damage: 62, cooldown: 2.0, buildTime: 11, requires: 'factory', requiresName: 'کارخانه', description: 'برد بلند و شکننده؛ نیازمند محافظ' },
 ];
+
+const DIFFICULTIES = {
+  easy: { id: 'easy', name: 'آسان', hint: 'دشمن کندتر می‌سازد و موج‌های کوچک‌تری می‌فرستد', income: .7, wave: 42, cap: 10, turrets: 1, think: 4.2, hp: .92 },
+  normal: { id: 'normal', name: 'معمولی', hint: 'تعادل استاندارد نبرد', income: 1, wave: 30, cap: 14, turrets: 2, think: 3, hp: 1 },
+  hard: { id: 'hard', name: 'سخت', hint: 'اقتصاد پرسرعت، پدافند سنگین و موج‌های بزرگ', income: 1.42, wave: 22, cap: 18, turrets: 3, think: 2.1, hp: 1.12 },
+};
 
 const BUILDING_INFO = Object.fromEntries([
   ...BUILDINGS,
-  { kind: 'hq', name: 'مرکز فرماندهی', icon: '⌂', cost: 0, hp: 2500, powerUse: 0, range: 9.5, damage: 17, cooldown: 1.25 },
+  { kind: 'hq', name: 'مرکز فرماندهی', icon: '⌂', cost: 0, hp: 2500, powerUse: 0, range: 11.5, damage: 17, cooldown: 1.25 },
 ].map((item) => [item.kind, item]));
 const UNIT_INFO = Object.fromEntries(UNITS.map((item) => [item.kind, item]));
+
+const sound = (() => {
+  let ctx = null;
+  let muted = false;
+  try { muted = localStorage.getItem('frontline.muted') === '1'; } catch (error) { muted = false; }
+  let lastShotAt = 0;
+  function ensure() {
+    if (!ctx) {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return null;
+      ctx = new AudioCtor();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function tone(frequency, duration, { type = 'sine', gain = .05, endFreq = frequency, delay = 0 } = {}) {
+    if (muted) return;
+    const ac = ensure();
+    if (!ac) return;
+    const start = ac.currentTime + delay;
+    const oscillator = ac.createOscillator();
+    const envelope = ac.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(30, endFreq), start + duration);
+    envelope.gain.setValueAtTime(.0001, start);
+    envelope.gain.linearRampToValueAtTime(gain, start + Math.min(.02, duration / 3));
+    envelope.gain.exponentialRampToValueAtTime(.0001, start + duration);
+    oscillator.connect(envelope).connect(ac.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + .03);
+  }
+  function noise(duration = .3, gain = .12) {
+    if (muted) return;
+    const ac = ensure();
+    if (!ac) return;
+    const frames = Math.max(1, Math.floor(ac.sampleRate * duration));
+    const buffer = ac.createBuffer(1, frames, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / frames) ** 2;
+    const source = ac.createBufferSource();
+    source.buffer = buffer;
+    const filter = ac.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 850;
+    const envelope = ac.createGain();
+    envelope.gain.value = gain;
+    envelope.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + duration);
+    source.connect(filter).connect(envelope).connect(ac.destination);
+    source.start();
+  }
+  return {
+    init: () => ensure(),
+    ui: () => tone(520, .06, { type: 'triangle', gain: .028, endFreq: 680 }),
+    order: () => tone(330, .1, { type: 'sine', gain: .03, endFreq: 470 }),
+    deny: () => tone(190, .15, { type: 'square', gain: .026, endFreq: 120 }),
+    alert: () => { tone(440, .12, { type: 'sawtooth', gain: .03, endFreq: 330 }); tone(440, .12, { type: 'sawtooth', gain: .03, endFreq: 330, delay: .18 }); },
+    shot: (fromPlayer) => { const now = performance.now(); if (now - lastShotAt < 75) return; lastShotAt = now; tone(fromPlayer ? 780 : 540, .05, { type: 'square', gain: .011, endFreq: 360 }); },
+    build: () => { tone(620, .1, { type: 'sine', gain: .038, endFreq: 640 }); tone(940, .13, { type: 'sine', gain: .032, endFreq: 960, delay: .09 }); },
+    explode: () => noise(.36, .11),
+    victory: () => [523, 659, 784, 1046].forEach((freq, index) => tone(freq, .24, { type: 'triangle', gain: .05, delay: index * .12 })),
+    defeat: () => [392, 330, 262].forEach((freq, index) => tone(freq, .32, { type: 'sine', gain: .05, delay: index * .16 })),
+    toggle() {
+      muted = !muted;
+      try { localStorage.setItem('frontline.muted', muted ? '1' : '0'); } catch (error) { /* private mode */ }
+      if (!muted) tone(660, .08, { type: 'sine', gain: .03 });
+      return muted;
+    },
+    get muted() { return muted; },
+  };
+})();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#90a69a');
@@ -83,6 +161,8 @@ let elapsed = 0;
 let credits = 0;
 let selectedFactionId = 'cn';
 let enemyFactionId = 'us';
+let selectedDifficulty = 'normal';
+const difficulty = () => DIFFICULTIES[selectedDifficulty] || DIFFICULTIES.normal;
 let selectedEntity = null;
 let activeTab = 'build';
 let placementKind = null;
@@ -91,9 +171,21 @@ let abilityMode = null;
 let abilityCooldown = 0;
 let boostUntil = { fortify: 0, overdrive: 0, ironclad: 0, recon: 0 };
 let enemyWaveTimer = 28;
+let enemyCredits = 0;
+let enemyThinkTimer = 0;
+let enemyRecruitTimer = 0;
+let enemyWaveNumber = 0;
+let power = { supply: 0, usage: 0, factor: 1 };
+let enemyPower = { supply: 0, usage: 0, factor: 1 };
+let powerWarned = false;
+let stats = { kills: 0, losses: 0, trained: 0, built: 0 };
+let lastPlayerHitAt = -99;
+let attackAlertAt = -99;
+let helpWasPaused = false;
 let toastTimer = 0;
 let uiTimer = 0;
 let passiveHealTimer = 0;
+let repairFxTimer = 0;
 const buildings = [];
 const units = [];
 const effects = [];
@@ -108,6 +200,8 @@ const enemyFaction = () => factionById(enemyFactionId);
 const playerBuildingCount = (kind) => buildings.filter((building) => building.owner === 'player' && (!kind || building.kind === kind)).length;
 const playerUnitCount = () => units.filter((unit) => unit.owner === 'player').length;
 const enemyUnitCount = () => units.filter((unit) => unit.owner === 'enemy').length;
+const queuedCount = (owner) => buildings.filter((building) => building.owner === owner).reduce((total, building) => total + (building.queue?.length || 0), 0);
+const queuedForKind = (owner, kind) => buildings.filter((building) => building.owner === owner).reduce((total, building) => total + (building.queue || []).filter((job) => job.kind === kind).length, 0);
 const specialFor = (factionId) => factionById(factionId).special;
 const findBuildingInfo = (kind, factionId = selectedFactionId) => BUILDING_INFO[kind] || (specialFor(factionId).kind === kind ? specialFor(factionId) : null);
 
@@ -425,6 +519,15 @@ function createUnitVisual(kind, color) {
 }
 
 function addEntityDecor(entity, radius, height) {
+  // Permanent team marker: teal for the player, red for the enemy, independent of faction colour.
+  const teamRing = new THREE.Mesh(
+    new THREE.RingGeometry(radius * 1.03, radius * 1.13, 36),
+    new THREE.MeshBasicMaterial({ color: entity.owner === 'player' ? 0x8ff0d0 : 0xff7f74, transparent: true, opacity: .4, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  teamRing.rotation.x = -Math.PI / 2;
+  teamRing.position.y = .045;
+  entity.group.add(teamRing);
+
   const ring = new THREE.Mesh(new THREE.RingGeometry(radius * .88, radius, 32), new THREE.MeshBasicMaterial({ color: getEntityColor(entity.owner, entity.factionId), transparent: true, opacity: .92, side: THREE.DoubleSide }));
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = .075;
@@ -434,13 +537,29 @@ function addEntityDecor(entity, radius, height) {
 
   const barWidth = entity.entityType === 'building' ? 3.15 : 1.55;
   const barY = height + .52;
+  const barGroup = new THREE.Group();
+  barGroup.position.set(0, barY, 0);
+  entity.group.add(barGroup);
   const back = new THREE.Mesh(new THREE.BoxGeometry(barWidth, .13, .09), new THREE.MeshBasicMaterial({ color: 0x17201c, transparent: true, opacity: .9 }));
-  back.position.set(0, barY, 0);
-  entity.group.add(back);
+  back.position.set(0, 0, 0);
+  barGroup.add(back);
   const fill = new THREE.Mesh(new THREE.BoxGeometry(barWidth - .06, .085, .13), new THREE.MeshBasicMaterial({ color: 0x6ee0ad }));
-  fill.position.set(0, barY + .01, .015);
-  entity.group.add(fill);
-  entity.healthBar = { fill, width: barWidth - .06 };
+  fill.position.set(0, .01, .015);
+  barGroup.add(fill);
+  entity.healthBar = { fill, width: barWidth - .06, group: barGroup };
+
+  if (entity.entityType === 'building') {
+    const progressGroup = new THREE.Group();
+    progressGroup.position.set(0, height + .92, 0);
+    progressGroup.visible = false;
+    entity.group.add(progressGroup);
+    const progressBack = new THREE.Mesh(new THREE.BoxGeometry(2.4, .1, .08), new THREE.MeshBasicMaterial({ color: 0x17201c, transparent: true, opacity: .85 }));
+    progressGroup.add(progressBack);
+    const progressFill = new THREE.Mesh(new THREE.BoxGeometry(2.28, .06, .1), new THREE.MeshBasicMaterial({ color: 0xf2c66e }));
+    progressFill.position.set(0, .01, .02);
+    progressGroup.add(progressFill);
+    entity.productionBar = { group: progressGroup, fill: progressFill, width: 2.28 };
+  }
 }
 
 function updateHealthBar(entity) {
@@ -455,8 +574,8 @@ function updateHealthBar(entity) {
 function createBuilding(kind, owner, x, z, factionId = owner === 'player' ? selectedFactionId : enemyFactionId) {
   const info = findBuildingInfo(kind, factionId) || BUILDING_INFO.hq;
   const faction = factionById(factionId);
-  const color = owner === 'player' ? faction.color : (owner === 'enemy' ? faction.color : faction.color);
-  const hpMult = owner === 'player' ? (faction.hpMult || 1) : 1;
+  const color = faction.color;
+  const hpMult = owner === 'player' ? (faction.hpMult || 1) : difficulty().hp * (faction.hpMult || 1);
   const group = createBuildingVisual(kind, color, factionId);
   const entity = {
     entityType: 'building', kind, owner, factionId, name: info.name || 'ساختمان', icon: info.icon || '▥',
@@ -464,7 +583,7 @@ function createBuilding(kind, owner, x, z, factionId = owner === 'player' ? sele
     powerUse: info.powerUse || 0, powerOutput: info.powerOutput || 0, income: info.income || 0,
     attackRange: info.range || (kind === 'hq' ? 9.5 : 0), scanRange: info.range || (kind === 'hq' ? 10 : 0),
     damage: info.damage || (kind === 'hq' ? 17 : 0), cooldown: info.cooldown || (kind === 'hq' ? 1.25 : 0),
-    lastShot: 0, attackTarget: null, destroyed: false, group,
+    lastShot: 0, attackTarget: null, destroyed: false, group, queue: [],
   };
   group.position.set(x, 0, z);
   group.userData.entity = entity;
@@ -478,15 +597,16 @@ function createBuilding(kind, owner, x, z, factionId = owner === 'player' ? sele
 function createUnit(kind, owner, x, z, factionId = owner === 'player' ? selectedFactionId : enemyFactionId) {
   const info = UNIT_INFO[kind] || UNIT_INFO.scout;
   const faction = factionById(factionId);
-  const hpMult = owner === 'player' ? (faction.hpMult || 1) : 1;
+  const hpMult = owner === 'player' ? (faction.hpMult || 1) : difficulty().hp * (faction.hpMult || 1);
   const group = createUnitVisual(kind, faction.color);
   const entity = {
     entityType: 'unit', kind, owner, factionId, name: info.name, icon: info.icon,
     x, z, hp: info.hp * hpMult, maxHp: info.hp * hpMult,
-    speed: info.speed * (owner === 'player' ? (faction.speedMult || 1) : 1),
-    attackRange: info.range * (owner === 'player' ? (faction.rangeMult || 1) : 1),
-    scanRange: info.scan * (owner === 'player' ? (faction.rangeMult || 1) : 1), damage: info.damage,
+    speed: info.speed * (faction.speedMult || 1),
+    attackRange: info.range * (faction.rangeMult || 1),
+    scanRange: info.scan * (faction.rangeMult || 1), damage: info.damage,
     cooldown: info.cooldown, lastShot: 0, attackTarget: null, moveTarget: null, destroyed: false, group,
+    holdPosition: false, repairRate: info.repair || 0,
   };
   group.position.set(x, 0, z);
   group.userData.entity = entity;
@@ -497,11 +617,25 @@ function createUnit(kind, owner, x, z, factionId = owner === 'player' ? selected
   return entity;
 }
 
+function disposeObject(root) {
+  root.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    const materials = Array.isArray(child.material) ? child.material : child.material ? [child.material] : [];
+    materials.forEach((material) => {
+      material.map?.dispose();
+      material.dispose();
+    });
+  });
+}
+
 function clearEntities() {
-  for (const entity of [...buildings, ...units]) scene.remove(entity.group);
+  for (const entity of [...buildings, ...units]) {
+    scene.remove(entity.group);
+    disposeObject(entity.group);
+  }
   buildings.length = 0;
   units.length = 0;
-  effects.forEach((effect) => scene.remove(effect.object));
+  effects.forEach((effect) => { scene.remove(effect.object); disposeObject(effect.object); });
   effects.length = 0;
   selectedEntity = null;
   if (placementGhost) {
@@ -547,7 +681,7 @@ function renderToolbar() {
     const extra = item.description || (isBuilding ? '' : 'آمادهٔ تولید');
     return `<button type="button" class="build-card ${isBuilding ? '' : 'train-card'}" data-kind="${item.kind}" data-building="${isBuilding}" ${requirement ? 'disabled' : ''} title="${extra}">
       <span class="build-icon" style="color:${isBuilding ? playerFaction().color : '#9de4cc'}">${item.icon}</span>
-      <span class="build-copy"><strong>${item.name}</strong><small class="cost">◆ ${fmt(price)}</small>${requirement ? `<small class="requires">نیاز: ${requirement}</small>` : ''}</span>
+      <span class="build-copy"><strong>${item.name}</strong><small class="cost">◆ ${fmt(price)}</small>${requirement ? `<small class="requires">نیاز: ${requirement}</small>` : ''}<small class="queue-count"></small></span>
     </button>`;
   }).join('');
 
@@ -573,13 +707,19 @@ function updateToolbarAvailability() {
     button.classList.toggle('active', isBuilding && placementKind === kind);
     const costNode = button.querySelector('.cost');
     if (costNode) costNode.textContent = `◆ ${fmt(cost)}`;
+    if (!isBuilding) {
+      const queued = queuedForKind('player', kind);
+      const queueNode = button.querySelector('.queue-count');
+      if (queueNode) queueNode.textContent = queued ? `در صف ${faDigits(queued)}` : '';
+      button.classList.toggle('producing', queued > 0);
+    }
   });
 }
 
 function setToolbarTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.toolbar-tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
-  $('#toolbarHint').textContent = tab === 'build' ? 'گزینه‌ای را انتخاب کنید، سپس محل ساخت را روی زمین بزنید' : 'تولید نیرو نیازمند ساختمان مناسب است';
+  $('#toolbarHint').textContent = tab === 'build' ? 'گزینه‌ای را انتخاب کنید، سپس محل ساخت را روی زمین بزنید' : 'نیروها با زمان ساخته می‌شوند و در صف تولید می‌نشینند';
   renderToolbar();
 }
 
@@ -594,11 +734,24 @@ function startGame(factionId = selectedFactionId) {
   paused = false;
   gameEnded = false;
   elapsed = 0;
-  credits = 2350;
+  credits = 2600;
   abilityCooldown = 0;
   boostUntil = { fortify: 0, overdrive: 0, ironclad: 0, recon: 0 };
-  enemyWaveTimer = 26;
+  enemyWaveTimer = Math.round(difficulty().wave);
+  enemyRecruitTimer = 4;
+  enemyCredits = 400;
+  enemyThinkTimer = 2;
+  enemyWaveNumber = 0;
+  powerWarned = false;
   passiveHealTimer = 0;
+  repairFxTimer = 0;
+  stats = { kills: 0, losses: 0, trained: 0, built: 0 };
+  lastPlayerHitAt = -99;
+  attackAlertAt = -99;
+  power = computePower('player');
+  enemyPower = computePower('enemy');
+  sound.init();
+  updateSoundButton();
   placementKind = null;
   abilityMode = null;
   cameraHeight = 44;
@@ -606,6 +759,7 @@ function startGame(factionId = selectedFactionId) {
   updateCamera();
   $('#startScreen').classList.add('hidden');
   $('#resultScreen').classList.add('hidden');
+  $('#helpScreen').classList.add('hidden');
   $('#pauseVeil').classList.add('hidden');
   $('#placementHint').classList.add('hidden');
   $('#pauseBtn').innerHTML = '<span>Ⅱ</span>';
@@ -623,6 +777,7 @@ function startGame(factionId = selectedFactionId) {
   createBuilding('generator', 'enemy', 30, 14, enemyFactionId);
   createBuilding('barracks', 'enemy', 23, 20, enemyFactionId);
   createBuilding('factory', 'enemy', 29, 20, enemyFactionId);
+  createBuilding('turret', 'enemy', 16, 9, enemyFactionId);
   const enemyTank = createUnit('tank', 'enemy', 17, 15.5, enemyFactionId);
   enemyTank.attackTarget = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
   const enemyScout = createUnit('scout', 'enemy', 17, 11, enemyFactionId);
@@ -639,7 +794,7 @@ function startGame(factionId = selectedFactionId) {
   setSelection(null);
   setToolbarTab('build');
   updateUI(true);
-  showToast(`فرمانده ${playerFaction().name}، پایگاه آماده است. مرکز دشمن را پیدا کن.`);
+  showToast(`فرمانده ${playerFaction().name}، پایگاه آماده است. دشمن روی حالت «${difficulty().name}» است.`);
 }
 
 function setSelection(entity) {
@@ -659,24 +814,53 @@ function renderSelection() {
   const ratio = Math.max(0, selectedEntity.hp / selectedEntity.maxHp * 100);
   let actions = '';
   if (friendly && selectedEntity.entityType === 'unit') {
-    actions = `<div class="selection-actions"><button class="mini-action" data-action="stop">توقف حرکت</button>${selectedEntity.damage > 0 ? '<button class="mini-action" data-action="attack">حالت حمله</button>' : ''}</div>`;
+    actions = `<div class="selection-actions"><button class="mini-action" data-action="stop">${selectedEntity.holdPosition ? 'آزادکردن واحد' : 'توقف و پدافند'}</button>${selectedEntity.damage > 0 ? '<button class="mini-action" data-action="attack">حالت حمله</button>' : ''}</div>`;
   } else if (friendly && ['barracks', 'factory'].includes(selectedEntity.kind)) {
     actions = `<div class="selection-actions"><button class="mini-action" data-action="train">رفتن به تولید نیرو</button></div>`;
   } else if (friendly && selectedEntity.kind === 'hq') {
     actions = `<div class="selection-actions"><button class="mini-action" data-action="build">فرمان‌های ساخت</button></div>`;
   }
-  card.innerHTML = `<div class="selection-entity-head"><span class="selection-entity-icon" style="color:${factionById(selectedEntity.factionId).color}">${selectedEntity.icon}</span><div class="selection-data"><strong>${selectedEntity.name}</strong><small>${selectedEntity.entityType === 'unit' ? 'واحد میدانی' : 'ساختمان پایگاه'}</small></div><span class="owner-tag" style="color:${friendly ? '#86d9b5' : '#f28b7f'}">${friendly ? 'خودی' : 'دشمن'}</span></div><div class="health-track"><span style="width:${ratio}%"></span></div>${actions}`;
+  card.innerHTML = `<div class="selection-entity-head"><span class="selection-entity-icon" style="color:${factionById(selectedEntity.factionId).color}">${selectedEntity.icon}</span><div class="selection-data"><strong>${selectedEntity.name}</strong><small>${selectedEntity.entityType === 'unit' ? 'واحد میدانی' : 'ساختمان پایگاه'}</small></div><span class="owner-tag" style="color:${friendly ? '#86d9b5' : '#f28b7f'}">${friendly ? 'خودی' : 'دشمن'}</span></div><div class="health-track"><span style="width:${ratio}%"></span></div><div class="queue-line" id="selectionQueue"></div>${actions}`;
   card.querySelectorAll('.mini-action').forEach((button) => button.addEventListener('click', () => {
     const action = button.dataset.action;
-    if (action === 'stop') { selectedEntity.moveTarget = null; selectedEntity.attackTarget = null; showToast('دستور حرکت لغو شد.'); }
-    if (action === 'attack') { abilityMode = 'unitAttack'; showToast('برای حمله، روی واحد یا ساختمان دشمن بزنید.'); }
+    if (action === 'stop') {
+      selectedEntity.moveTarget = null;
+      selectedEntity.attackTarget = null;
+      selectedEntity.holdPosition = !selectedEntity.holdPosition;
+      sound.order();
+      showToast(selectedEntity.holdPosition ? 'واحد در جای خود پدافند می‌کند.' : 'واحد آزاد شد و دوباره حرکت می‌کند.');
+      renderSelection();
+    }
+    if (action === 'attack') { abilityMode = 'unitAttack'; sound.ui(); showToast('برای حمله، روی واحد یا ساختمان دشمن بزنید.'); }
     if (action === 'train') setToolbarTab('train');
     if (action === 'build') setToolbarTab('build');
   }));
 }
 
+// The selection panel is only rebuilt on selection changes; while an entity is alive we
+// just refresh the health bar, so its action buttons keep their DOM node and stay clickable.
+function refreshSelectionHealth() {
+  if (!selectedEntity) return;
+  const fill = document.querySelector('#selectionCard .health-track span');
+  if (fill) {
+    const ratio = Math.max(0, Math.min(1, selectedEntity.hp / selectedEntity.maxHp));
+    fill.style.width = `${ratio * 100}%`;
+  }
+  const queueNode = document.querySelector('#selectionQueue');
+  if (!queueNode) return;
+  if (selectedEntity.entityType === 'building' && selectedEntity.queue?.length) {
+    const job = selectedEntity.queue[0];
+    const percent = Math.round((1 - Math.max(0, job.remaining) / Math.max(.001, job.total)) * 100);
+    const rest = selectedEntity.queue.length - 1;
+    queueNode.textContent = `تولید: ${UNIT_INFO[job.kind].name} · ${faDigits(percent)}٪${rest > 0 ? ` · در صف: ${faDigits(rest)}` : ''}`;
+  } else {
+    queueNode.textContent = '';
+  }
+}
+
 function startPlacement(kind) {
   if (!gameStarted || paused || gameEnded) return;
+  sound.ui();
   placementKind = kind;
   abilityMode = null;
   $('#placementHint').classList.remove('hidden');
@@ -710,14 +894,16 @@ function snappedPoint(point) {
   return { x: Math.round(point.x / 2) * 2, z: Math.round(point.z / 2) * 2 };
 }
 
-function validBuildSpot(x, z, kind) {
+function validBuildSpotFor(owner, x, z, kind) {
   const boundary = kind === 'factory' ? 4.2 : 3.4;
   if (Math.abs(x) > HALF_W - boundary || Math.abs(z) > HALF_D - boundary) return false;
-  const friendly = buildings.filter((building) => building.owner === 'player');
-  const connected = friendly.some((building) => Math.hypot(building.x - x, building.z - z) < 16.2);
-  if (!connected) return false;
-  const overlap = buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 5.5);
-  return !overlap;
+  const friendly = buildings.filter((building) => building.owner === owner);
+  if (!friendly.some((building) => Math.hypot(building.x - x, building.z - z) < 16.2)) return false;
+  return !buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 5.5);
+}
+
+function validBuildSpot(x, z, kind) {
+  return validBuildSpotFor('player', x, z, kind);
 }
 
 function validateGhost() {
@@ -742,46 +928,120 @@ function placeBuildingAt(x, z) {
   const point = snappedPoint({ x, z });
   const kind = placementKind;
   if (!validBuildSpot(point.x, point.z, kind)) {
-    showToast('این نقطه مناسب نیست؛ نزدیک پایگاه و دور از ساختمان‌ها انتخاب کن.');
+    showToast('این نقطه مناسب نیست؛ نزدیک پایگاه و دور از ساختمان‌ها انتخاب کن.', 'warn');
+    sound.deny();
     return;
   }
   const cost = getBuildingCost(kind);
   if (credits < cost) {
-    showToast('اعتبار کافی نیست.');
+    showToast('اعتبار کافی نیست.', 'warn');
+    sound.deny();
     return;
   }
   credits -= cost;
   createBuilding(kind, 'player', point.x, point.z, selectedFactionId);
+  stats.built += 1;
+  sound.build();
   cancelPlacement();
   updateUI(true);
-  showToast(`${(findBuildingInfo(kind) || {}).name || 'ساختمان'} ساخته شد.`);
+  showToast(`${(findBuildingInfo(kind) || {}).name || 'ساختمان'} ساخته شد.`, 'good');
 }
 
 function trainUnit(kind) {
   const info = UNIT_INFO[kind];
   if (!info || !gameStarted || paused || gameEnded) return;
   if (playerBuildingCount(info.requires) === 0) {
-    showToast(`برای تولید ${info.name} به ${info.requiresName} نیاز داری.`);
+    showToast(`برای تولید ${info.name} به ${info.requiresName} نیاز داری.`, 'warn');
+    sound.deny();
     return;
   }
-  if (playerUnitCount() >= UNIT_LIMIT) {
-    showToast('ظرفیت نیروها پر شده است.');
+  if (playerUnitCount() + queuedCount('player') >= UNIT_LIMIT) {
+    showToast('ظرفیت نیروها پر شده است.', 'warn');
+    sound.deny();
+    return;
+  }
+  const producers = buildings.filter((building) => building.owner === 'player' && building.kind === info.requires && !building.destroyed && (building.queue?.length || 0) < 4);
+  if (producers.length === 0) {
+    showToast('همهٔ تولیدکننده‌ها مشغول‌اند؛ چند لحظه صبر کن.', 'warn');
+    sound.deny();
     return;
   }
   const cost = getUnitCost(kind);
   if (credits < cost) {
-    showToast('اعتبار کافی نیست.');
+    showToast('اعتبار کافی نیست.', 'warn');
+    sound.deny();
     return;
   }
-  const producer = buildings.find((building) => building.owner === 'player' && building.kind === info.requires);
-  if (!producer) return;
+  const producer = producers.sort((a, b) => (a.queue?.length || 0) - (b.queue?.length || 0))[0];
   credits -= cost;
-  const offset = units.length % 2 ? 3.7 : 4.1;
-  const unit = createUnit(kind, 'player', producer.x + offset, producer.z + 1.5, selectedFactionId);
-  if (selectedEntity && selectedEntity.owner === 'player' && selectedEntity.entityType === 'unit') setSelection(selectedEntity);
+  producer.queue.push({ kind, total: info.buildTime, remaining: info.buildTime });
+  sound.ui();
   updateUI(true);
-  showToast(`${info.name} در میدان مستقر شد.`);
-  if (unit) unit.moveTarget = { x: producer.x + offset + 2, z: producer.z + 1.5 };
+  showToast(`${info.name} به صف تولید رفت.`);
+}
+
+function findSpawnPoint(producer) {
+  const offsets = [[4.4, 1.4], [4.4, -1.6], [-4.4, 1.4], [-4.4, -1.6], [1.4, 4.4], [-1.4, 4.4], [1.4, -4.4], [-1.4, -4.4], [6.6, .4], [-6.6, .4]];
+  for (const [offsetX, offsetZ] of offsets) {
+    const x = THREE.MathUtils.clamp(producer.x + offsetX, -HALF_W + 2, HALF_W - 2);
+    const z = THREE.MathUtils.clamp(producer.z + offsetZ, -HALF_D + 2, HALF_D - 2);
+    if (!buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 3.6)) return { x, z };
+  }
+  return { x: producer.x, z: producer.z + 4 };
+}
+
+function nearestPlayerBuilding(entity) {
+  let nearest = null;
+  let nearestDistance = Infinity;
+  for (const building of buildings) {
+    if (building.owner !== 'player' || building.destroyed) continue;
+    const d = distance(entity, building);
+    if (d < nearestDistance) { nearest = building; nearestDistance = d; }
+  }
+  return nearest;
+}
+
+function spawnUnitFrom(producer, kind) {
+  if (!producer || producer.destroyed) return null;
+  if (producer.owner === 'player' && playerUnitCount() >= UNIT_LIMIT) return null;
+  if (producer.owner === 'enemy' && enemyUnitCount() >= difficulty().cap) return null;
+  const spot = findSpawnPoint(producer);
+  const factionId = producer.owner === 'player' ? selectedFactionId : enemyFactionId;
+  const unit = createUnit(kind, producer.owner, spot.x, spot.z, factionId);
+  const forwardX = producer.owner === 'player' ? 6 : -6;
+  unit.moveTarget = {
+    x: THREE.MathUtils.clamp(spot.x + forwardX, -HALF_W + 2, HALF_W - 2),
+    z: THREE.MathUtils.clamp(spot.z + (producer.owner === 'player' ? 2 : -2), -HALF_D + 2, HALF_D - 2),
+  };
+  if (producer.owner === 'enemy') {
+    const hq = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
+    const rally = hq
+      ? { x: THREE.MathUtils.clamp(hq.x - 7, -HALF_W + 3, HALF_W - 3), z: THREE.MathUtils.clamp(hq.z - 4, -HALF_D + 3, HALF_D - 3) }
+      : { x: spot.x - 4, z: spot.z - 2 };
+    unit.staging = true;
+    unit.attackTarget = null;
+    unit.moveTarget = rally;
+  } else {
+    stats.trained += 1;
+    sound.build();
+    showToast(`${UNIT_INFO[kind].name} آماده شد.`, 'good');
+    if (selectedEntity && selectedEntity.owner === 'player' && selectedEntity.entityType === 'unit') setSelection(selectedEntity);
+  }
+  return unit;
+}
+
+function updateProduction(dt) {
+  for (const producer of [...buildings]) {
+    if (producer.destroyed || !producer.queue?.length) continue;
+    const job = producer.queue[0];
+    const factor = producer.owner === 'player' ? power.factor : enemyPower.factor;
+    job.remaining -= dt * Math.max(.45, factor);
+    if (job.remaining > 0) continue;
+    const unit = spawnUnitFrom(producer, job.kind);
+    if (!unit) { job.remaining = .4; continue; }
+    producer.queue.shift();
+    if (producer.owner === 'player') updateUI(true);
+  }
 }
 
 function getGroundPoint(clientX, clientY) {
@@ -808,6 +1068,18 @@ function getEntityAt(clientX, clientY) {
   return null;
 }
 
+function issueMove(unit, x, z) {
+  unit.holdPosition = false;
+  unit.attackTarget = null;
+  unit.moveTarget = { x, z };
+}
+
+function issueAttack(unit, target) {
+  unit.holdPosition = false;
+  unit.attackTarget = target;
+  unit.moveTarget = { x: target.x, z: target.z };
+}
+
 function handleCanvasAction(clientX, clientY, button = 0) {
   if (!gameStarted || paused || gameEnded) return;
   const point = getGroundPoint(clientX, clientY);
@@ -821,26 +1093,28 @@ function handleCanvasAction(clientX, clientY, button = 0) {
     return;
   }
   if (abilityMode === 'unitAttack' && clicked && clicked.owner === 'enemy') {
-    if (selectedEntity?.entityType === 'unit' && selectedEntity.owner === 'player') selectedEntity.attackTarget = clicked;
-    else units.filter((unit) => unit.owner === 'player' && unit.damage > 0).forEach((unit) => { unit.attackTarget = clicked; unit.moveTarget = { x: clicked.x, z: clicked.z }; });
+    if (selectedEntity?.entityType === 'unit' && selectedEntity.owner === 'player') issueAttack(selectedEntity, clicked);
+    else units.filter((unit) => unit.owner === 'player' && unit.damage > 0).forEach((unit) => issueAttack(unit, clicked));
     abilityMode = null;
+    sound.order();
     showToast('دستور حمله صادر شد.');
     return;
   }
   if (clicked) {
     if (clicked.owner === 'player') {
       setSelection(clicked);
-      if (button === 2 && selectedEntity?.entityType === 'unit') {
-        selectedEntity.moveTarget = { x: clicked.x, z: clicked.z };
+      if (button === 2 && selectedEntity?.entityType === 'unit' && selectedEntity.kind === 'engineer') {
+        showToast('مهندس به‌طور خودکار نزدیک‌ترین ساختمان آسیب‌دیده را ترمیم می‌کند.');
       }
       return;
     }
     if (selectedEntity?.owner === 'player' && selectedEntity.entityType === 'unit' && selectedEntity.damage > 0) {
-      selectedEntity.attackTarget = clicked;
-      selectedEntity.moveTarget = { x: clicked.x, z: clicked.z };
+      issueAttack(selectedEntity, clicked);
+      sound.order();
       showToast(`هدف انتخاب شد: ${clicked.name}`);
     } else if (button === 2) {
-      units.filter((unit) => unit.owner === 'player' && unit.damage > 0).forEach((unit) => { unit.attackTarget = clicked; unit.moveTarget = { x: clicked.x, z: clicked.z }; });
+      units.filter((unit) => unit.owner === 'player' && unit.damage > 0).forEach((unit) => issueAttack(unit, clicked));
+      sound.order();
       showToast('نیروهای در دسترس به هدف حمله می‌کنند.');
     } else {
       setSelection(clicked);
@@ -848,24 +1122,49 @@ function handleCanvasAction(clientX, clientY, button = 0) {
     return;
   }
   if (point && selectedEntity?.owner === 'player' && selectedEntity.entityType === 'unit') {
-    selectedEntity.attackTarget = null;
-    selectedEntity.moveTarget = { x: point.x, z: point.z };
+    issueMove(selectedEntity, point.x, point.z);
     abilityMode = null;
+    sound.order();
     showToast('دستور حرکت صادر شد.');
   } else if (point && button === 2) {
-    units.filter((unit) => unit.owner === 'player').forEach((unit) => { unit.attackTarget = null; unit.moveTarget = { x: point.x, z: point.z }; });
+    units.filter((unit) => unit.owner === 'player').forEach((unit) => issueMove(unit, point.x, point.z));
+    sound.order();
   } else if (point && selectedEntity && selectedEntity.owner !== 'player') {
     setSelection(null);
   }
 }
 
 renderer.domElement.addEventListener('contextmenu', (event) => event.preventDefault());
+const activePointers = new Map();
+let pinchState = null;
+
+function zoomCamera(delta) {
+  cameraHeight = THREE.MathUtils.clamp(cameraHeight + delta, 30, 70);
+  resize();
+}
+
 renderer.domElement.addEventListener('pointerdown', (event) => {
   if (event.button === 2) event.preventDefault();
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (activePointers.size === 2) {
+    const [first, second] = [...activePointers.values()];
+    pinchState = { distance: Math.max(1, Math.hypot(first.x - second.x, first.y - second.y)), height: cameraHeight };
+    pointerState = null;
+    return;
+  }
+  if (activePointers.size > 2) return;
   pointerState = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, lastY: event.clientY, moved: false, button: event.button };
   renderer.domElement.setPointerCapture?.(event.pointerId);
 });
 renderer.domElement.addEventListener('pointermove', (event) => {
+  if (activePointers.has(event.pointerId)) activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (pinchState && activePointers.size === 2) {
+    const [first, second] = [...activePointers.values()];
+    const distance = Math.max(1, Math.hypot(first.x - second.x, first.y - second.y));
+    cameraHeight = THREE.MathUtils.clamp(pinchState.height * pinchState.distance / distance, 30, 70);
+    resize();
+    return;
+  }
   if (placementKind) moveGhostToPointer(event.clientX, event.clientY);
   if (!pointerState || pointerState.id !== event.pointerId) return;
   const dx = event.clientX - pointerState.lastX;
@@ -881,31 +1180,50 @@ renderer.domElement.addEventListener('pointermove', (event) => {
   pointerState.lastY = event.clientY;
 });
 renderer.domElement.addEventListener('pointerup', (event) => {
+  activePointers.delete(event.pointerId);
+  if (activePointers.size < 2) pinchState = null;
   if (!pointerState || pointerState.id !== event.pointerId) return;
   const state = pointerState;
   pointerState = null;
   if (!state.moved) handleCanvasAction(event.clientX, event.clientY, state.button);
 });
-renderer.domElement.addEventListener('pointercancel', () => { pointerState = null; });
+renderer.domElement.addEventListener('pointercancel', (event) => {
+  activePointers.delete(event.pointerId);
+  if (activePointers.size < 2) pinchState = null;
+  pointerState = null;
+});
 renderer.domElement.addEventListener('wheel', (event) => {
   event.preventDefault();
-  cameraHeight = THREE.MathUtils.clamp(cameraHeight + Math.sign(event.deltaY) * 2.4, 30, 70);
-  resize();
+  zoomCamera(Math.sign(event.deltaY) * 2.4);
 }, { passive: false });
 
-minimap.addEventListener('pointerdown', (event) => {
-  if (!gameStarted) return;
+function jumpCameraToMinimap(event) {
   const rect = minimap.getBoundingClientRect();
   const x = (event.clientX - rect.left) / rect.width * MAP_W - HALF_W;
   const z = (event.clientY - rect.top) / rect.height * MAP_D - HALF_D;
   cameraTarget.set(x, 0, z);
   updateCamera();
+}
+
+let minimapDragging = false;
+minimap.addEventListener('pointerdown', (event) => {
+  if (!gameStarted) return;
+  minimapDragging = true;
+  minimap.setPointerCapture?.(event.pointerId);
+  jumpCameraToMinimap(event);
 });
+minimap.addEventListener('pointermove', (event) => {
+  if (minimapDragging) jumpCameraToMinimap(event);
+});
+minimap.addEventListener('pointerup', () => { minimapDragging = false; });
+minimap.addEventListener('pointercancel', () => { minimapDragging = false; });
 
 function useAbility() {
   if (!gameStarted || paused || gameEnded || abilityCooldown > 0) return;
   const ability = playerFaction().ability;
+  sound.ui();
   if (ability === 'airstrike') {
+    if (placementKind || placementGhost) cancelPlacement();
     abilityMode = 'airstrike';
     placementKind = null;
     $('#placementHint').classList.remove('hidden');
@@ -947,6 +1265,7 @@ function useAirstrike(x, z) {
   } else {
     const airfieldBonus = playerBuildingCount('airfield') > 0 ? 1.3 : 1;
     targets.forEach((target) => damageEntity(target, (target.kind === 'hq' ? 260 : 390) * airfieldBonus, null));
+    sound.explode();
     showToast(`حملهٔ هوایی به ${targets.length.toLocaleString('fa-IR')} هدف اصابت کرد.`);
     const blast = new THREE.Mesh(new THREE.RingGeometry(.7, 7.2, 36), new THREE.MeshBasicMaterial({ color: 0xffc56d, transparent: true, opacity: .6, side: THREE.DoubleSide }));
     blast.rotation.x = -Math.PI / 2;
@@ -960,14 +1279,91 @@ function useAirstrike(x, z) {
   updateUI(true);
 }
 
+function updateSoundButton() {
+  const button = $('#soundBtn');
+  if (!button) return;
+  button.innerHTML = `<span>${sound.muted ? '🔇' : '♪'}</span><small>${sound.muted ? 'بی‌صدا' : 'صدا'}</small>`;
+  button.classList.toggle('muted', sound.muted);
+  button.title = sound.muted ? 'صدا خاموش است' : 'صدا روشن است';
+  button.setAttribute('aria-label', sound.muted ? 'روشن کردن صدا' : 'خاموش کردن صدا');
+}
+
+function setDifficulty(id) {
+  if (!DIFFICULTIES[id]) return;
+  selectedDifficulty = id;
+  document.querySelectorAll('.difficulty-option').forEach((button) => button.classList.toggle('active', button.dataset.difficulty === id));
+  const hint = $('#difficultyHint');
+  if (hint) hint.textContent = DIFFICULTIES[id].hint;
+  try { localStorage.setItem('frontline.difficulty', id); } catch (error) { /* private mode */ }
+}
+
+function openHelp() {
+  helpWasPaused = gameStarted && !gameEnded && !paused;
+  if (helpWasPaused) togglePause();
+  $('#helpScreen').classList.remove('hidden');
+  sound.ui();
+}
+
+function closeHelp() {
+  $('#helpScreen').classList.add('hidden');
+  if (helpWasPaused && paused) togglePause();
+  helpWasPaused = false;
+}
+
+function showStartScreen() {
+  gameStarted = false;
+  gameEnded = false;
+  paused = false;
+  abilityMode = null;
+  cancelPlacement();
+  clearEntities();
+  $('#startScreen').classList.remove('hidden');
+  $('#resultScreen').classList.add('hidden');
+  $('#helpScreen').classList.add('hidden');
+  $('#pauseVeil').classList.add('hidden');
+  $('#placementHint').classList.add('hidden');
+  $('#pauseBtn').innerHTML = '<span>Ⅱ</span>';
+  $('#pauseBtn').title = 'توقف بازی';
+  $('#creditsValue').textContent = '۰';
+  $('#powerValue').textContent = '۰ / ۰';
+  $('#powerValue').style.color = '#edf4f1';
+  $('#unitValue').textContent = '۰';
+  $('#timerValue').textContent = '۰۰:۰۰';
+  $('#abilityBtn').disabled = true;
+  $('#activeBoost').classList.add('hidden');
+  $('#selectionCard').innerHTML = `<div class="selection-placeholder"><span class="selection-cross">⌖</span><div><strong>واحدی انتخاب نشده</strong><small>روی واحد یا ساختمان خود بزنید</small></div></div>`;
+  updateSoundButton();
+}
+
 $('#abilityBtn').addEventListener('click', useAbility);
-$('#startBtn').addEventListener('click', () => startGame(selectedFactionId));
+$('#startBtn').addEventListener('click', () => { sound.init(); startGame(selectedFactionId); });
 $('#restartBtn').addEventListener('click', () => {
-  if (!gameStarted) { $('#startScreen').classList.remove('hidden'); return; }
+  if (!gameStarted) { showStartScreen(); return; }
   startGame(selectedFactionId);
 });
-$('#playAgainBtn').addEventListener('click', () => startGame(selectedFactionId));
+$('#playAgainBtn').addEventListener('click', () => { sound.init(); startGame(selectedFactionId); });
+$('#changeFactionBtn').addEventListener('click', showStartScreen);
 $('#pauseBtn').addEventListener('click', togglePause);
+$('#soundBtn').addEventListener('click', () => {
+  const muted = sound.toggle();
+  updateSoundButton();
+  showToast(muted ? 'صدا خاموش شد.' : 'صدا روشن شد.');
+});
+$('#helpBtn').addEventListener('click', openHelp);
+$('#helpLink').addEventListener('click', openHelp);
+$('#helpCloseBtn').addEventListener('click', closeHelp);
+$('#helpStartBtn').addEventListener('click', closeHelp);
+document.querySelectorAll('.difficulty-option').forEach((button) => {
+  button.addEventListener('click', () => { sound.ui(); setDifficulty(button.dataset.difficulty); });
+});
+
+try {
+  const storedDifficulty = localStorage.getItem('frontline.difficulty');
+  if (storedDifficulty && DIFFICULTIES[storedDifficulty]) setDifficulty(storedDifficulty); else setDifficulty(selectedDifficulty);
+} catch (error) {
+  setDifficulty(selectedDifficulty);
+}
+updateSoundButton();
 
 function togglePause() {
   if (!gameStarted || gameEnded) return;
@@ -976,6 +1372,7 @@ function togglePause() {
   $('#pauseBtn').innerHTML = paused ? '<span>▶</span>' : '<span>Ⅱ</span>';
   $('#pauseBtn').title = paused ? 'ادامهٔ بازی' : 'توقف بازی';
   updateToolbarAvailability();
+  sound.ui();
 }
 
 function cancelModes() {
@@ -985,9 +1382,29 @@ function cancelModes() {
   }
 }
 
+function focusHome() {
+  const hq = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
+  if (!hq) return;
+  cameraTarget.set(hq.x, 0, hq.z);
+  updateCamera();
+}
+
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') { cancelModes(); return; }
+  if (event.key === 'Escape') {
+    if (!$('#helpScreen').classList.contains('hidden')) { closeHelp(); return; }
+    cancelModes();
+    return;
+  }
+  if (!$('#helpScreen').classList.contains('hidden')) return;
+  if (event.code === 'Space') {
+    event.preventDefault();
+    if (gameStarted && !gameEnded) togglePause();
+    return;
+  }
   if (!gameStarted || paused || gameEnded) return;
+  if (event.key === '+' || event.key === '=') { zoomCamera(-4); return; }
+  if (event.key === '-' || event.key === '_') { zoomCamera(4); return; }
+  if (event.key.toLowerCase() === 'h') { focusHome(); return; }
   const step = cameraHeight * .08;
   if (event.key.toLowerCase() === 'a' || event.key === 'ArrowLeft') cameraTarget.x -= step;
   if (event.key.toLowerCase() === 'd' || event.key === 'ArrowRight') cameraTarget.x += step;
@@ -996,11 +1413,11 @@ window.addEventListener('keydown', (event) => {
   updateCamera();
 });
 
-function showToast(message) {
+function showToast(message, tone = '') {
   const toast = $('#toast');
   toast.textContent = message;
-  toast.classList.add('show');
-  toastTimer = 2.5;
+  toast.className = `toast show${tone ? ` ${tone}` : ''}`;
+  toastTimer = tone === 'warn' ? 3.4 : 2.6;
 }
 
 function distance(a, b) {
@@ -1020,7 +1437,7 @@ function nearestEnemy(attacker, maxRange) {
 
 function updateMovement(dt) {
   for (const unit of [...units]) {
-    if (unit.destroyed) continue;
+    if (unit.destroyed || unit.holdPosition) continue;
     let goal = unit.moveTarget;
     if (unit.attackTarget && !unit.attackTarget.destroyed && unit.attackTarget.hp > 0 && distance(unit, unit.attackTarget) > unit.attackRange * .82) {
       goal = { x: unit.attackTarget.x, z: unit.attackTarget.z };
@@ -1032,6 +1449,7 @@ function updateMovement(dt) {
     const d = Math.hypot(dx, dz);
     if (d < .28) {
       unit.moveTarget = null;
+      if (unit.staging) unit.holdPosition = true;
       continue;
     }
     const speedBoost = unit.owner === 'player' && boostUntil.overdrive > elapsed ? 1.65 : 1;
@@ -1042,10 +1460,37 @@ function updateMovement(dt) {
     unit.z += dz / d * step;
     unit.group.position.set(unit.x, 0, unit.z);
     unit.group.rotation.y = Math.atan2(dx, dz);
+    // Keep the health bar facing the (fixed) camera instead of spinning with the chassis.
+    if (unit.healthBar?.group) unit.healthBar.group.rotation.y = -unit.group.rotation.y;
   }
 }
 
-function updateCombat(now) {
+function updateUnitSeparation() {
+  for (let i = 0; i < units.length; i++) {
+    const a = units[i];
+    if (a.destroyed) continue;
+    for (let j = i + 1; j < units.length; j++) {
+      const b = units[j];
+      if (b.destroyed) continue;
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const d = Math.hypot(dx, dz);
+      const minDistance = (a.kind === 'tank' || a.kind === 'artillery' ? 1.7 : 1.05) + (b.kind === 'tank' || b.kind === 'artillery' ? 1.7 : 1.05);
+      if (d >= minDistance || d < .0001) continue;
+      const push = (minDistance - d) * .5;
+      const nx = dx / d;
+      const nz = dz / d;
+      a.x = THREE.MathUtils.clamp(a.x - nx * push, -HALF_W + 1.5, HALF_W - 1.5);
+      a.z = THREE.MathUtils.clamp(a.z - nz * push, -HALF_D + 1.5, HALF_D - 1.5);
+      b.x = THREE.MathUtils.clamp(b.x + nx * push, -HALF_W + 1.5, HALF_W - 1.5);
+      b.z = THREE.MathUtils.clamp(b.z + nz * push, -HALF_D + 1.5, HALF_D - 1.5);
+      a.group.position.set(a.x, 0, a.z);
+      b.group.position.set(b.x, 0, b.z);
+    }
+  }
+}
+
+function updateCombat() {
   const attackers = [...buildings, ...units].filter((entity) => !entity.destroyed && entity.damage > 0);
   for (const attacker of attackers) {
     let target = attacker.attackTarget;
@@ -1054,26 +1499,46 @@ function updateCombat(now) {
       target = null;
     }
     const scanBonus = attacker.owner === 'player' && boostUntil.recon > elapsed ? 5 : 0;
-    const specialBonus = attacker.owner === 'player' ? (playerBuildingCount('sensor') > 0 ? 2.5 : 0) + (playerBuildingCount('droneport') > 0 ? 1.5 : 0) : 0;
+    const specialBonus = attacker.owner === 'player'
+      ? (playerBuildingCount('sensor') > 0 ? 2.5 : 0)
+        + (playerBuildingCount('droneport') > 0 ? 1.5 : 0)
+        + (playerBuildingCount('radar') > 0 ? 3 : 0)
+      : 0;
     if (!target) {
-      target = nearestEnemy(attacker, (attacker.scanRange || attacker.attackRange) + scanBonus + specialBonus);
+      const acquireRange = attacker.holdPosition
+        ? attacker.attackRange
+        : (attacker.scanRange || attacker.attackRange) + scanBonus + specialBonus;
+      target = nearestEnemy(attacker, acquireRange);
       if (target) attacker.attackTarget = target;
     }
     if (!target) continue;
-    const dist = distance(attacker, target);
+    let dist = distance(attacker, target);
+    if (attacker.entityType === 'unit' && dist > attacker.attackRange) {
+      const nearby = nearestEnemy(attacker, attacker.attackRange);
+      if (nearby) {
+        target = nearby;
+        attacker.attackTarget = nearby;
+        dist = distance(attacker, target);
+      }
+    }
     const rangeBonus = attacker.owner === 'player' ? (playerFaction().rangeMult ? 0 : 0) : 0;
     const range = attacker.attackRange + rangeBonus + (attacker.owner === 'player' && playerBuildingCount('sensor') > 0 ? 1.4 : 0);
     if (attacker.entityType === 'unit' && dist > range) {
+      if (attacker.holdPosition) continue;
       attacker.moveTarget = { x: target.x, z: target.z };
       continue;
     }
-    if (dist <= range && elapsed - attacker.lastShot >= attacker.cooldown) {
+    const powerFactor = attacker.entityType === 'building' ? (attacker.owner === 'player' ? power.factor : enemyPower.factor) : 1;
+    const cooldown = attacker.cooldown / Math.max(.45, powerFactor);
+    if (dist <= range && elapsed - attacker.lastShot >= cooldown) {
       attacker.lastShot = elapsed;
       let damage = attacker.damage;
-      if (attacker.owner === 'player' && playerFaction().turretMult && (attacker.kind === 'turret' || attacker.kind === 'bastion')) damage *= playerFaction().turretMult;
+      const attackerFaction = factionById(attacker.factionId);
+      if (attackerFaction.turretMult && (attacker.kind === 'turret' || attacker.kind === 'bastion')) damage *= attackerFaction.turretMult;
       if (attacker.owner === 'player' && playerBuildingCount('bastion') > 0 && attacker.entityType === 'building' && attacker.kind === 'turret') damage *= 1.2;
       if (attacker.owner === 'player' && playerFaction().ability === 'airstrike' && playerBuildingCount('airfield') > 0) damage *= 1.1;
       createShot(attacker, target);
+      sound.shot(attacker.owner === 'player');
       damageEntity(target, damage, attacker);
     }
   }
@@ -1096,12 +1561,17 @@ function damageEntity(target, amount, attacker) {
   if (target.owner === 'player') {
     if (playerFaction().armorMult) reduction *= playerFaction().armorMult;
     if (boostUntil.ironclad > elapsed) reduction *= .58;
+    if (boostUntil.fortify > elapsed && target.entityType === 'building') reduction *= .62;
     if (playerBuildingCount('armory') > 0) reduction *= .9;
+  } else if (target.owner === 'enemy') {
+    const targetFaction = factionById(target.factionId);
+    if (targetFaction.armorMult) reduction *= targetFaction.armorMult;
   }
   const applied = Math.max(1, amount * reduction);
   target.hp -= applied;
+  if (target.owner === 'player' && target.entityType === 'building') lastPlayerHitAt = elapsed;
   updateHealthBar(target);
-  if (selectedEntity === target) renderSelection();
+  if (selectedEntity === target) refreshSelectionHealth();
   if (target.hp <= 0) destroyEntity(target, attacker);
 }
 
@@ -1109,21 +1579,39 @@ function healEntity(entity, amount) {
   if (!entity || entity.destroyed) return;
   entity.hp = Math.min(entity.maxHp, entity.hp + amount);
   updateHealthBar(entity);
+  if (selectedEntity === entity) refreshSelectionHealth();
+}
+
+function spawnBlast(x, z, radius = 2.4) {
+  const blast = new THREE.Mesh(
+    new THREE.RingGeometry(radius * .35, radius, 28),
+    new THREE.MeshBasicMaterial({ color: 0xffb066, transparent: true, opacity: .75, side: THREE.DoubleSide }),
+  );
+  blast.rotation.x = -Math.PI / 2;
+  blast.position.set(x, .14, z);
+  scene.add(blast);
+  effects.push({ object: blast, remaining: .55, scale: true });
 }
 
 function destroyEntity(entity, attacker) {
   if (!entity || entity.destroyed) return;
   entity.destroyed = true;
   scene.remove(entity.group);
+  disposeObject(entity.group);
   const list = entity.entityType === 'building' ? buildings : units;
   const index = list.indexOf(entity);
   if (index >= 0) list.splice(index, 1);
   for (const other of [...buildings, ...units]) if (other.attackTarget === entity) other.attackTarget = null;
   if (selectedEntity === entity) setSelection(null);
+  if (entity.owner === 'enemy') stats.kills += 1;
+  else stats.losses += 1;
+  spawnBlast(entity.x, entity.z, entity.entityType === 'building' ? 3.2 : 2.1);
+  sound.explode();
   if (entity.kind === 'hq') {
     finishGame(entity.owner === 'enemy');
   } else if (entity.owner === 'player') {
-    showToast(`${entity.name} از دست رفت.`);
+    const lost = entity.entityType === 'building' ? `${entity.name} از دست رفت.` : `${entity.name} منهدم شد.`;
+    showToast(lost, 'warn');
   }
   updateUI(true);
 }
@@ -1138,22 +1626,78 @@ function finishGame(victory) {
   $('#resultTitle').textContent = victory ? 'پیروزی!' : 'پایگاه سقوط کرد';
   $('#resultText').textContent = victory ? `مرکز فرماندهی ${enemyFaction().name} نابود شد. عملیات با موفقیت پایان یافت.` : 'مرکز فرماندهی شما نابود شد. برای تغییر تاکتیک دوباره وارد میدان شوید.';
   $('#resultEyebrow').textContent = victory ? 'عملیات موفق' : 'عملیات ناموفق';
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = Math.floor(elapsed % 60);
+  $('#resultStats').innerHTML = `
+    <div class="result-stat"><small>زمان نبرد</small><strong>${faDigits(String(minutes).padStart(2, '0'))}:${faDigits(String(seconds).padStart(2, '0'))}</strong></div>
+    <div class="result-stat"><small>اهداف منهدم‌شده</small><strong>${fmt(stats.kills)}</strong></div>
+    <div class="result-stat"><small>تلفات ما</small><strong>${fmt(stats.losses)}</strong></div>`;
+  if (victory) sound.victory(); else sound.defeat();
+  $('#helpScreen').classList.add('hidden');
+}
+
+function computePower(owner) {
+  const owned = buildings.filter((building) => building.owner === owner);
+  const supply = owned.reduce((total, building) => total + (building.powerOutput || 0), 0);
+  const usage = owned.reduce((total, building) => total + (building.powerUse || 0), 0);
+  const factor = usage > supply ? Math.max(.4, supply / Math.max(1, usage)) : 1;
+  return { supply, usage, factor };
+}
+
+function updatePowerStates() {
+  power = computePower('player');
+  enemyPower = computePower('enemy');
+  if (power.factor < 1 && !powerWarned) {
+    powerWarned = true;
+    showToast('کمبود برق: تولید و آتش برجک‌ها کند شده است. نیروگاه بساز.', 'warn');
+    sound.alert();
+  } else if (power.factor >= 1 && powerWarned) {
+    powerWarned = false;
+    showToast('تأمین برق پایگاه متعادل شد.', 'good');
+  }
 }
 
 function updateEconomy(dt) {
   const refineries = buildings.filter((building) => building.owner === 'player' && building.kind === 'refinery').length;
   const specialCount = buildings.filter((building) => building.owner === 'player' && building.kind === playerFaction().special.kind).length;
-  let income = 17 + refineries * 9;
+  let income = 18 + refineries * 9;
   income += specialCount * (playerFaction().special.income || 0);
   if (playerFaction().incomeMult) income *= playerFaction().incomeMult;
+  if (power.factor < 1) income *= .85;
   credits += income * dt;
 }
 
-function updatePower() {
-  const playerBuildings = buildings.filter((building) => building.owner === 'player');
-  const generation = playerBuildings.reduce((total, building) => total + (building.powerOutput || 0), 0);
-  const usage = playerBuildings.reduce((total, building) => total + (building.powerUse || 0), 0);
-  return { supply: generation, usage };
+function updateEngineers(dt) {
+  repairFxTimer -= dt;
+  for (const engineer of units) {
+    if (engineer.destroyed || engineer.kind !== 'engineer' || engineer.holdPosition) continue;
+    if (engineer.moveTarget || engineer.attackTarget) continue;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const entity of [...buildings, ...units]) {
+      if (entity.owner !== engineer.owner || entity.destroyed || entity.hp >= entity.maxHp - .5) continue;
+      const d = distance(engineer, entity);
+      if (d > 9 || d >= bestDistance) continue;
+      best = entity;
+      bestDistance = d;
+    }
+    if (!best) continue;
+    engineer.group.rotation.y = Math.atan2(best.x - engineer.x, best.z - engineer.z);
+    if (engineer.healthBar?.group) engineer.healthBar.group.rotation.y = -engineer.group.rotation.y;
+    healEntity(best, engineer.repairRate * dt * .75);
+    if (repairFxTimer <= 0 && engineer.owner === 'player') {
+      repairFxTimer = .55;
+      const startY = .9;
+      const endY = best.entityType === 'building' ? 1.8 : .7;
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(engineer.x, startY, engineer.z),
+        new THREE.Vector3(best.x, endY, best.z),
+      ]);
+      const beam = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x8ff0d0, transparent: true, opacity: .7 }));
+      scene.add(beam);
+      effects.push({ object: beam, remaining: .3 });
+    }
+  }
 }
 
 function updatePassiveHealing(dt) {
@@ -1168,19 +1712,153 @@ function updatePassiveHealing(dt) {
   }
 }
 
+function enemyBuildingCount(kind) {
+  return buildings.filter((building) => building.owner === 'enemy' && (!kind || building.kind === kind)).length;
+}
+
+function findEnemyBuildSpot(kind) {
+  const hq = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
+  if (!hq) return null;
+  const towardPlayer = Math.atan2(-hq.z, -hq.x);
+  const startAngle = kind === 'turret' ? towardPlayer : Math.random() * Math.PI * 2;
+  const radii = kind === 'turret' ? [8, 11, 14, 17] : [9, 12, 15, 18];
+  for (const radius of radii) {
+    for (let step = 0; step < 16; step++) {
+      const angle = startAngle + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * (Math.PI / 8);
+      const x = Math.round((hq.x + Math.cos(angle) * radius) / 2) * 2;
+      const z = Math.round((hq.z + Math.sin(angle) * radius) / 2) * 2;
+      if (validBuildSpotFor('enemy', x, z, kind)) return { x, z };
+    }
+  }
+  return null;
+}
+
+function enemyDesiredBuilding() {
+  const counts = {
+    generator: enemyBuildingCount('generator'),
+    barracks: enemyBuildingCount('barracks'),
+    factory: enemyBuildingCount('factory'),
+    turret: enemyBuildingCount('turret'),
+    refinery: enemyBuildingCount('refinery'),
+  };
+  const diff = difficulty();
+  if (enemyPower.supply < enemyPower.usage + 55) return 'generator';
+  if (counts.refinery < 2) return 'refinery';
+  if (counts.turret < diff.turrets) return 'turret';
+  if (counts.barracks < 1) return 'barracks';
+  if (counts.factory < 1) return 'factory';
+  if (counts.factory < 2 && elapsed > 110) return 'factory';
+  if (counts.barracks < 2 && elapsed > 160) return 'barracks';
+  if (counts.refinery < 3 && elapsed > 240) return 'refinery';
+  return null;
+}
+
+function enemyBuildDecision() {
+  const kind = enemyDesiredBuilding();
+  if (!kind) return null;
+  const info = BUILDING_INFO[kind];
+  if (!info || enemyCredits < info.cost) return null;
+  const spot = findEnemyBuildSpot(kind);
+  if (!spot) return null;
+  enemyCredits -= info.cost;
+  return createBuilding(kind, 'enemy', spot.x, spot.z, enemyFactionId);
+}
+
+function enqueueEnemyUnit(kind) {
+  const info = UNIT_INFO[kind];
+  if (!info) return false;
+  if (enemyUnitCount() + queuedCount('enemy') >= difficulty().cap) return false;
+  const producers = buildings.filter((building) => building.owner === 'enemy' && building.kind === info.requires && !building.destroyed && (building.queue?.length || 0) < 4);
+  if (!producers.length) return false;
+  const producer = producers.sort((a, b) => (a.queue?.length || 0) - (b.queue?.length || 0))[0];
+  const cost = Math.ceil(info.cost * .95);
+  if (enemyCredits < cost) return false;
+  enemyCredits -= cost;
+  producer.queue.push({ kind, total: info.buildTime, remaining: info.buildTime });
+  return true;
+}
+
+function pickEnemyUnitKind() {
+  const roll = Math.random();
+  if (elapsed > 240 && roll < .22) return 'artillery';
+  if (elapsed > 100 && roll < .58) return 'tank';
+  return 'scout';
+}
+
+function recruitEnemyUnit() {
+  const diff = difficulty();
+  if (enemyUnitCount() + queuedCount('enemy') >= diff.cap) return false;
+  const kind = pickEnemyUnitKind();
+  if (enqueueEnemyUnit(kind)) return true;
+  return enqueueEnemyUnit('scout');
+}
+
+function stagedEnemyUnits() {
+  return units.filter((unit) => unit.owner === 'enemy' && !unit.destroyed && (unit.staging || unit.holdPosition));
+}
+
+function launchAssault(group = stagedEnemyUnits()) {
+  if (!group.length) return 0;
+  const anchor = group[0];
+  const target = nearestPlayerBuilding(anchor) || buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
+  if (!target) return 0;
+  for (const unit of group) {
+    unit.staging = false;
+    unit.holdPosition = false;
+    unit.attackTarget = target;
+    unit.moveTarget = { x: target.x, z: target.z };
+  }
+  enemyWaveNumber += 1;
+  if (group.length >= 3) {
+    showToast('هشدار: دشمن حملهٔ هماهنگ را آغاز کرد.', 'warn');
+    sound.alert();
+  }
+  return group.length;
+}
+
 function updateEnemyAI(dt) {
+  const diff = difficulty();
+  const refineries = enemyBuildingCount('refinery');
+  enemyCredits += dt * (18 + refineries * 10) * diff.income * (enemyFaction().incomeMult || 1);
+  enemyThinkTimer -= dt;
+  if (enemyThinkTimer <= 0) {
+    enemyThinkTimer = diff.think;
+    enemyBuildDecision();
+    const intruders = units.filter((unit) => unit.owner === 'player' && !unit.destroyed && buildings.some((building) => building.owner === 'enemy' && distance(unit, building) < 15));
+    if (intruders.length) {
+      if (enemyUnitCount() + queuedCount('enemy') < diff.cap) enqueueEnemyUnit('tank');
+      for (const defender of stagedEnemyUnits()) {
+        let threat = null;
+        let threatDistance = Infinity;
+        for (const intruder of intruders) {
+          const d = distance(defender, intruder);
+          if (d < threatDistance) { threat = intruder; threatDistance = d; }
+        }
+        if (!threat) continue;
+        defender.staging = false;
+        defender.holdPosition = false;
+        defender.attackTarget = threat;
+        defender.moveTarget = { x: threat.x, z: threat.z };
+      }
+    }
+  }
+  enemyRecruitTimer -= dt;
+  if (enemyRecruitTimer <= 0) {
+    enemyRecruitTimer = Math.max(4.2, diff.wave * .22);
+    const desired = enemyDesiredBuilding();
+    const reserve = desired ? BUILDING_INFO[desired].cost + 140 : 0;
+    if (enemyCredits >= reserve) {
+      recruitEnemyUnit();
+      if (Math.random() < .35) recruitEnemyUnit();
+    }
+  }
   enemyWaveTimer -= dt;
-  if (enemyWaveTimer > 0) return;
-  enemyWaveTimer = Math.max(19, 34 - elapsed / 95);
-  if (enemyUnitCount() >= 12) return;
-  const enemyHQ = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
-  const playerHQ = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
-  if (!enemyHQ || !playerHQ) return;
-  const type = elapsed > 105 && Math.random() > .45 ? 'tank' : 'scout';
-  const unit = createUnit(type, 'enemy', enemyHQ.x - 5, enemyHQ.z - 2.6, enemyFactionId);
-  unit.attackTarget = playerHQ;
-  unit.moveTarget = { x: playerHQ.x, z: playerHQ.z };
-  if (enemyUnitCount() <= 5) showToast('هشدار: نیروهای دشمن در حال پیشروی هستند.');
+  const staged = stagedEnemyUnits();
+  const groupSize = selectedDifficulty === 'hard' ? 4 : selectedDifficulty === 'easy' ? 6 : 5;
+  if (staged.length >= groupSize || (enemyWaveTimer <= 0 && staged.length >= 2)) {
+    enemyWaveTimer = diff.wave;
+    if (staged.length) launchAssault(staged);
+  }
 }
 
 function updateEffects(dt) {
@@ -1207,10 +1885,19 @@ function updateEffects(dt) {
 function updateGame(dt) {
   elapsed += dt;
   if (abilityCooldown > 0) abilityCooldown = Math.max(0, abilityCooldown - dt);
+  updatePowerStates();
   updateEconomy(dt);
+  updateProduction(dt);
   updateMovement(dt);
-  updateCombat(performance.now());
+  updateUnitSeparation();
+  updateCombat();
   updateEnemyAI(dt);
+  if (elapsed - lastPlayerHitAt < 1.6 && elapsed - attackAlertAt > 14) {
+    attackAlertAt = elapsed;
+    showToast('پایگاه زیر حمله است! نیرو بفرست یا پدافند بساز.', 'warn');
+    sound.alert();
+  }
+  updateEngineers(dt);
   updatePassiveHealing(dt);
   updateEffects(dt);
   uiTimer += dt;
@@ -1223,9 +1910,9 @@ function updateGame(dt) {
 function updateUI(force = false) {
   if (!gameStarted) return;
   $('#creditsValue').textContent = fmt(credits);
-  const power = updatePower();
   $('#powerValue').textContent = `${fmt(power.supply)} / ${fmt(power.usage)}`;
-  $('#powerValue').style.color = power.supply < power.usage ? '#fb8a7c' : '#edf4f1';
+  $('#powerValue').style.color = power.factor < 1 ? '#fb8a7c' : '#edf4f1';
+  $('#powerValue').title = power.factor < 1 ? 'کمبود برق: تولید و آتش کندتر می‌شود' : 'برق کافی است';
   $('#unitValue').textContent = `${fmt(playerUnitCount())} / ${fmt(UNIT_LIMIT)}`;
   const minutes = Math.floor(elapsed / 60);
   const seconds = Math.floor(elapsed % 60);
@@ -1240,9 +1927,22 @@ function updateUI(force = false) {
   if (boostUntil.recon > elapsed) boosts.push(`اسکن ${faDigits(Math.ceil(boostUntil.recon - elapsed))}ث`);
   $('#activeBoost').textContent = boosts.join('  ·  ');
   $('#activeBoost').classList.toggle('hidden', boosts.length === 0);
-  if (selectedEntity && !selectedEntity.destroyed) renderSelection();
+  if (selectedEntity && !selectedEntity.destroyed) refreshSelectionHealth();
+  updateProductionBars();
   updateToolbarAvailability();
   drawMinimap();
+}
+
+function updateProductionBars() {
+  for (const building of buildings) {
+    if (!building.productionBar) continue;
+    const job = building.queue?.[0];
+    building.productionBar.group.visible = Boolean(job);
+    if (!job) continue;
+    const progress = THREE.MathUtils.clamp(1 - Math.max(0, job.remaining) / Math.max(.001, job.total), .02, 1);
+    building.productionBar.fill.scale.x = progress;
+    building.productionBar.fill.position.x = -(building.productionBar.width * (1 - progress)) / 2;
+  }
 }
 
 function drawMinimap() {
@@ -1263,16 +1963,16 @@ function drawMinimap() {
   for (let x = -30; x <= 30; x += 10) { minimapCtx.beginPath(); minimapCtx.moveTo(px(x), 0); minimapCtx.lineTo(px(x), height); minimapCtx.stroke(); }
   for (let z = -20; z <= 20; z += 10) { minimapCtx.beginPath(); minimapCtx.moveTo(0, py(z)); minimapCtx.lineTo(width, py(z)); minimapCtx.stroke(); }
   for (const building of buildings) {
-    minimapCtx.fillStyle = building.owner === 'player' ? playerFaction().color : enemyFaction().color;
+    minimapCtx.fillStyle = building.owner === 'player' ? '#9df3d6' : '#ff8d80';
     minimapCtx.beginPath();
     const size = building.kind === 'hq' ? 5 : building.kind === 'turret' ? 3.6 : 3.2;
     minimapCtx.arc(px(building.x), py(building.z), size, 0, Math.PI * 2);
     minimapCtx.fill();
   }
   for (const unit of units) {
-    minimapCtx.fillStyle = unit.owner === 'player' ? '#dcfff0' : '#ffe0dc';
+    minimapCtx.fillStyle = unit.owner === 'player' ? '#e6fff7' : '#ffc9c2';
     minimapCtx.beginPath();
-    minimapCtx.arc(px(unit.x), py(unit.z), 2.2, 0, Math.PI * 2);
+    minimapCtx.arc(px(unit.x), py(unit.z), 2.1, 0, Math.PI * 2);
     minimapCtx.fill();
   }
   const viewWidth = Math.min(cameraHeight * viewport.clientWidth / Math.max(1, viewport.clientHeight), MAP_W);
@@ -1305,4 +2005,28 @@ renderFactionGrid();
 setToolbarTab('build');
 window.addEventListener('resize', resize);
 resize();
+
+// Read-only snapshot used by the automated smoke test and handy while debugging a battle.
+window.__frontline = {
+  snapshot: () => ({
+    elapsed: Math.round(elapsed),
+    credits: Math.round(credits),
+    paused,
+    gameStarted,
+    gameEnded,
+    difficulty: selectedDifficulty,
+    power: { supply: power.supply, usage: power.usage, factor: Math.round(power.factor * 100) / 100 },
+    player: {
+      buildings: buildings.filter((building) => building.owner === 'player').map((building) => ({ kind: building.kind, hp: Math.round(building.hp), x: building.x, z: building.z, queue: building.queue.length })),
+      units: units.filter((unit) => unit.owner === 'player').map((unit) => ({ kind: unit.kind, hp: Math.round(unit.hp) })),
+    },
+    enemy: {
+      credits: Math.round(enemyCredits),
+      buildings: buildings.filter((building) => building.owner === 'enemy').map((building) => ({ kind: building.kind, hp: Math.round(building.hp), x: building.x, z: building.z, queue: building.queue.length })),
+      units: units.filter((unit) => unit.owner === 'enemy').map((unit) => ({ kind: unit.kind, hp: Math.round(unit.hp) })),
+    },
+    stats: { ...stats },
+  }),
+};
+
 requestAnimationFrame(animate);
