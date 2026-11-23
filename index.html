@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#101b20" />
-    <meta name="description" content="Frontline: یک بازی استراتژی سه‌بعدی و مرورگری" />
+    <meta name="description" content="Frontline: بازی استراتژی سه‌بعدی مرورگری با درخت پیشرفت، پدافند هوایی، تانک‌ها و جنگنده‌های واقعی" />
     <title>Frontline | نبرد فرماندهان</title>
   </head>
   <body>
@@ -83,7 +83,7 @@
       <section id="startScreen" class="screen-overlay">
         <div class="start-panel glass">
           <div class="start-brand"><div class="brand-mark large"><span>F</span></div><div><span class="eyebrow">استراتژی سه‌بعدی · نبرد آزاد</span><h1>فرماندهان میدان</h1></div></div>
-          <p class="start-intro">جناح خودت را انتخاب کن، پایگاه بساز و مرکز فرماندهی دشمن را نابود کن.</p>
+          <p class="start-intro">با زمین خالی و تنها ۶٬۰۰۰ اعتبار شروع می‌کنی: اول مرکز فرماندهی، بعد منابع، پدافند هوایی، کشتیرانی، کارخانهٔ زرهی و فرودگاه. سپس با تانک‌ها و جنگنده‌های واقعی به مرکز فرماندهی دشمن ضربه بزن.</p>
           <div class="faction-select-head"><div><strong>انتخاب جناح</strong><small>هر جناح توانایی و سبک بازی ویژهٔ خودش را دارد</small></div><span class="select-count">۸ جناح</span></div>
           <div id="factionGrid" class="faction-grid"></div>
           <div class="difficulty-row">
@@ -116,9 +116,12 @@
             <div class="help-block"><strong>ساخت و تولید</strong><ul>
               <li>تب «ساخت‌وساز»: انتخاب گزینه، سپس کلیک روی نقطهٔ سبز</li>
               <li>تب «تولید نیرو»: نیرو به صف تولید می‌رود</li>
+              <li>ترتیب پیشرفت: مرکز فرماندهی ← نیروگاه و پالایشگاه ← پادگان ← برجک ← پدافند هوایی ← پایانهٔ کشتیرانی ← کارخانهٔ زرهی ← فرودگاه</li>
+              <li>هر ساختمان پیش‌نیاز ساختمان قبلی است؛ کارت‌های قفل‌شده پیش‌نیاز را نشان می‌دهند</li>
+              <li>پدافند هوایی تنها سامانه‌ای است که جنگنده و بالگرد را سرنگون می‌کند</li>
+              <li>پایانهٔ کشتیرانی درآمد و ۱۲٪ سرعت تولید را افزایش می‌دهد</li>
               <li>نیروگاه برق لازم برای کارخانه‌ها و برجک‌ها را تأمین می‌کند</li>
               <li>مهندس ساختمان‌ها و واحدهای آسیب‌دیده را ترمیم می‌کند</li>
-              <li>با انتخاب یک ساختمان، صف تولیدش را می‌بینی</li>
             </ul></div>
             <div class="help-block"><strong>دوربین و میان‌بر</strong><ul>
               <li>کشیدن روی میدان یا کلیک روی نقشهٔ کوچک: جابه‌جایی دوربین</li>
@@ -128,7 +131,7 @@
               <li>Esc: لغو ساخت یا هدف‌گیری توانایی</li>
             </ul></div>
             <div class="help-block"><strong>هدف</strong><ul>
-              <li>مرکز فرماندهی دشمن را نابود کن</li>
+              <li>مرکز فرماندهی دشمن را نابود کن؛ اگر مرکز فرماندهی خودت سقوط کند، بازی را می‌بازی</li>
               <li>هر جناح توانایی و ساختمان ویژهٔ خودش را دارد</li>
               <li>توانایی ویژه هر ۶۰ ثانیه آماده می‌شود</li>
               <li>فشار دشمن با گذشت زمان بیشتر می‌شود</li>
