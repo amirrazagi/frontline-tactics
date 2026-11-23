@@ -84,6 +84,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .selection-entity-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #9ae5cb; background: rgba(117,227,192,.11); font-size: 16px; }
 .selection-data { flex: 1; min-width: 0; }
 .owner-tag { font-size: 8px; color: #86cbb2; }
+.selection-stats { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 5px; color: #9fb6ae; font-size: 7px; }
+.selection-stats span { display: inline-flex; align-items: center; gap: 2px; padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,.055); }
 .health-track { height: 4px; background: rgba(255,255,255,.1); border-radius: 9px; overflow: hidden; margin-top: 8px; }
 .health-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #54d6a7, #a9e7a1); transition: width .2s; }
 .selection-actions { display: flex; gap: 5px; margin-top: 8px; }
@@ -109,6 +111,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .build-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; font-weight: 700; }
 .build-copy small { color: #d7b873; font-size: 8px; white-space: nowrap; }
 .build-copy .requires { color: #ef9a87; font-size: 7px; }
+.build-card.tech-start { border-color: rgba(242, 198, 110, .75); box-shadow: 0 0 0 1px rgba(242, 198, 110, .35), 0 0 18px rgba(242, 198, 110, .22); animation: techPulse 1.8s ease-in-out infinite; }
+.build-card.tech-start .build-icon { color: #f2c66e !important; }
+.build-card.tech-start strong::after { content: ' · شروع'; color: #f2c66e; font-size: 8px; }
+@media (min-width: 1200px) and (min-height: 640px) {
+  .build-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+  .build-card { min-width: 0; }
+  .selection-card { bottom: 208px; }
+}
+@keyframes techPulse { 0%, 100% { box-shadow: 0 0 0 1px rgba(242, 198, 110, .3), 0 0 10px rgba(242, 198, 110, .14); } 50% { box-shadow: 0 0 0 2px rgba(242, 198, 110, .55), 0 0 22px rgba(242, 198, 110, .3); } }
 .build-card.train-card { min-width: 112px; }
 
 .toast { position: absolute; top: 100px; left: 50%; transform: translate(-50%, -12px); padding: 9px 15px; border-radius: 10px; border: 1px solid rgba(117,227,192,.22); background: rgba(9,18,20,.93); color: #e2f2ec; opacity: 0; pointer-events: none; transition: .22s; font-size: 11px; box-shadow: 0 8px 24px rgba(0,0,0,.22); white-space: nowrap; }

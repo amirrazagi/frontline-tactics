@@ -13,33 +13,40 @@ const MAP_W = 76;
 const MAP_D = 60;
 const HALF_W = MAP_W / 2;
 const HALF_D = MAP_D / 2;
-const UNIT_LIMIT = 24;
+const UNIT_LIMIT = 30;
 
 const factions = [
-  { id: 'cn', name: 'چین', code: 'CN', color: '#ef5a61', trait: 'تولید انبوه', description: 'هزینهٔ ساخت و تولید نیرو کمتر است.', abilityName: 'تدارکات سریع', abilityText: '۵۰۰ اعتبار دریافت کن.', ability: 'supply', costMult: .88, unitCostMult: .9, special: { kind: 'arsenal', name: 'مجتمع صنعتی', icon: '▥', cost: 880, description: 'درآمد پایگاه را افزایش می‌دهد.', hp: 1100, powerUse: 30, income: 8 } },
-  { id: 'ir', name: 'ایران', code: 'IR', color: '#64c695', trait: 'دفاع استوار', description: 'برجک‌های دفاعی برد و قدرت بیشتری دارند.', abilityName: 'سپر دفاعی', abilityText: 'ساختمان‌ها را ترمیم و برای مدتی تقویت کن.', ability: 'fortify', turretMult: 1.28, special: { kind: 'bastion', name: 'پدافند سپهر', icon: '⌁', cost: 920, description: 'برج دفاعی دوربرد با آتش سنگین.', hp: 1050, powerUse: 38, range: 17, damage: 48, cooldown: 1.15 } },
-  { id: 'tr', name: 'ترکیه', code: 'TR', color: '#5fa9db', trait: 'تحرک بالا', description: 'واحدهای زمینی سریع‌تر حرکت می‌کنند.', abilityName: 'شتاب رزمی', abilityText: 'سرعت نیروهای زمینی را موقتاً افزایش بده.', ability: 'overdrive', speedMult: 1.2, special: { kind: 'droneport', name: 'پایگاه پهپادی', icon: '◈', cost: 860, description: 'برد دید و تحرک نیروها را افزایش می‌دهد.', hp: 900, powerUse: 32 } },
-  { id: 'us', name: 'آمریکا', code: 'US', color: '#5c9cf2', trait: 'پشتیبانی هوایی', description: 'توانایی حملهٔ هوایی تاکتیکی در اختیار است.', abilityName: 'حملهٔ هوایی', abilityText: 'نقطه‌ای روی میدان انتخاب کن تا هدف‌گیری شود.', ability: 'airstrike', special: { kind: 'airfield', name: 'پایگاه هوایی', icon: '✈', cost: 980, description: 'قدرت پشتیبانی هوایی را افزایش می‌دهد.', hp: 1050, powerUse: 45 } },
-  { id: 'ru', name: 'روسیه', code: 'RU', color: '#d67962', trait: 'زره سنگین', description: 'واحدها و ساختمان‌ها آسیب کمتری می‌گیرند.', abilityName: 'زره واکنشی', abilityText: 'برای مدتی آسیب دریافتی را کاهش بده.', ability: 'ironclad', armorMult: .84, special: { kind: 'armory', name: 'کارخانهٔ زرهی', icon: '▤', cost: 900, description: 'زره نیروهای زمینی را تقویت می‌کند.', hp: 1250, powerUse: 42 } },
-  { id: 'il', name: 'اسرائیل', code: 'IL', color: '#d8bf61', trait: 'شناسایی دقیق', description: 'واحدها دشمن را از فاصلهٔ دورتری تشخیص می‌دهند.', abilityName: 'اسکن میدان', abilityText: 'برد دید نیروها را برای مدتی افزایش بده.', ability: 'recon', rangeMult: 1.2, special: { kind: 'sensor', name: 'مرکز شنود', icon: '⌖', cost: 820, description: 'برد شناسایی و درگیری نیروها را افزایش می‌دهد.', hp: 800, powerUse: 28 } },
-  { id: 'in', name: 'هند', code: 'IN', color: '#e99b54', trait: 'اقتصاد پویا', description: 'اعتبار بیشتری از درآمد دوره‌ای به دست می‌آید.', abilityName: 'تجارت منطقه‌ای', abilityText: '۶۵۰ اعتبار به ذخیرهٔ پایگاه اضافه کن.', ability: 'trade', incomeMult: 1.18, special: { kind: 'solar', name: 'مزرعهٔ خورشیدی', icon: '☼', cost: 740, description: 'تولید برق و درآمد پایگاه را بالا می‌برد.', hp: 720, powerOutput: 95, income: 5 } },
-  { id: 'fr', name: 'فرانسه', code: 'FR', color: '#75c2c3', trait: 'پشتیبانی میدانی', description: 'ساختمان‌ها از ابتدا مقاوم‌ترند و ترمیم می‌شوند.', abilityName: 'تعمیر اضطراری', abilityText: 'سلامتی نیروها و ساختمان‌ها را بازیابی کن.', ability: 'repair', hpMult: 1.1, special: { kind: 'hospital', name: 'مرکز امداد', icon: '✚', cost: 860, description: 'نیروهای نزدیک را به‌آرامی ترمیم می‌کند.', hp: 980, powerUse: 34 } },
+  { id: 'cn', name: 'چین', code: 'CN', color: '#ef5a61', trait: 'تولید انبوه', description: 'هزینهٔ ساخت و تولید نیرو کمتر است.', abilityName: 'تدارکات سریع', abilityText: '۵۰۰ اعتبار دریافت کن.', ability: 'supply', costMult: .88, unitCostMult: .9, tank: { armor: 80, pen: 82, hp: 980, speed: 2.9 }, vehicles: { scout: 'دانگ‌فنگ منگشی', tank: 'تایپ ۹۹A', ifv: 'ZBD-04A', mlrs: 'PHL-03', heli: 'Z-10', jet: 'J-10C', atgm: 'HJ-12', sam: 'HQ-9' }, special: { kind: 'arsenal', name: 'مجتمع صنعتی', icon: '▥', cost: 880, description: 'درآمد پایگاه را افزایش می‌دهد.', hp: 1100, powerUse: 30, income: 8 } },
+  { id: 'ir', name: 'ایران', code: 'IR', color: '#64c695', trait: 'دفاع استوار', description: 'برجک‌های دفاعی برد و قدرت بیشتری دارند.', abilityName: 'سپر دفاعی', abilityText: 'ساختمان‌ها را ترمیم و برای مدتی تقویت کن.', ability: 'fortify', turretMult: 1.28, tank: { armor: 65, pen: 70, hp: 900, speed: 3.0 }, vehicles: { scout: 'صفیر', tank: 'کرار', ifv: 'BMP-2', mlrs: 'فجر-۵', heli: 'Mi-24', jet: 'MiG-29', atgm: 'دهلاویه', sam: 'باور-۳۷۳' }, special: { kind: 'bastion', name: 'پدافند سپهر', icon: '⌁', cost: 920, description: 'برج دفاعی دوربرد با آتش سنگین.', hp: 1050, powerUse: 38, range: 17, damage: 48, cooldown: 1.15 } },
+  { id: 'tr', name: 'ترکیه', code: 'TR', color: '#5fa9db', trait: 'تحرک بالا', description: 'واحدهای زمینی سریع‌تر حرکت می‌کنند.', abilityName: 'شتاب رزمی', abilityText: 'سرعت نیروهای زمینی را موقتاً افزایش بده.', ability: 'overdrive', speedMult: 1.2, tank: { armor: 75, pen: 78, hp: 900, speed: 3.0 }, vehicles: { scout: 'اوتوکار کبرا', tank: 'آلتای', ifv: 'ACV-15', mlrs: 'T-300 کاسیرگا', heli: 'T-129 آتاک', jet: 'F-16', atgm: 'OMTAS', sam: 'حصار' }, special: { kind: 'droneport', name: 'پایگاه پهپادی', icon: '◈', cost: 860, description: 'برد دید و تحرک نیروها را افزایش می‌دهد.', hp: 900, powerUse: 32 } },
+  { id: 'us', name: 'آمریکا', code: 'US', color: '#5c9cf2', trait: 'پشتیبانی هوایی', description: 'توانایی حملهٔ هوایی تاکتیکی در اختیار است.', abilityName: 'حملهٔ هوایی', abilityText: 'نقطه‌ای روی میدان انتخاب کن تا هدف‌گیری شود.', ability: 'airstrike', tank: { armor: 78, pen: 85, hp: 1000, speed: 2.8 }, vehicles: { scout: 'هاموی M1151', tank: 'M1A2 آبرامز', ifv: 'M2A3 بردلی', mlrs: 'HIMARS', heli: 'AH-64 آپاچی', jet: 'F-16C', atgm: 'جاولین', sam: 'پاتریوت' }, special: { kind: 'airbase', name: 'پایگاه هوایی راهبردی', icon: '✈', cost: 980, description: 'قدرت حملهٔ هوایی و تولید هوایی را افزایش می‌دهد.', hp: 1050, powerUse: 45 } },
+  { id: 'ru', name: 'روسیه', code: 'RU', color: '#d67962', trait: 'زره سنگین', description: 'واحدها و ساختمان‌ها آسیب کمتری می‌گیرند.', abilityName: 'زره واکنشی', abilityText: 'برای مدتی آسیب دریافتی را کاهش بده.', ability: 'ironclad', armorMult: .84, tank: { armor: 85, pen: 80, hp: 1050, speed: 2.6 }, vehicles: { scout: 'تایگر', tank: 'T-90M', ifv: 'BMP-3', mlrs: 'BM-30 اسمرچ', heli: 'Mi-28', jet: 'Su-35', atgm: 'کورنت', sam: 'S-400' }, special: { kind: 'armory', name: 'کارگاه زره و تعمیر', icon: '▤', cost: 900, description: 'زره نیروهای زمینی را تقویت می‌کند.', hp: 1250, powerUse: 42 } },
+  { id: 'il', name: 'اسرائیل', code: 'IL', color: '#d8bf61', trait: 'شناسایی دقیق', description: 'واحدها دشمن را از فاصلهٔ دورتری تشخیص می‌دهند.', abilityName: 'اسکن میدان', abilityText: 'برد دید نیروها را برای مدتی افزایش بده.', ability: 'recon', rangeMult: 1.2, tank: { armor: 88, pen: 75, hp: 1000, speed: 2.7 }, vehicles: { scout: 'سوفر', tank: 'مرکاوا Mk.4', ifv: 'نامر', mlrs: 'لینکس', heli: 'AH-64D', jet: 'F-15I', atgm: 'اسپایک', sam: 'دیوید اسلینگ' }, special: { kind: 'sensor', name: 'مرکز شنود', icon: '⌖', cost: 820, description: 'برد شناسایی و درگیری نیروها را افزایش می‌دهد.', hp: 800, powerUse: 28 } },
+  { id: 'in', name: 'هند', code: 'IN', color: '#e99b54', trait: 'اقتصاد پویا', description: 'اعتبار بیشتری از درآمد دوره‌ای به دست می‌آید.', abilityName: 'تجارت منطقه‌ای', abilityText: '۶۵۰ اعتبار به ذخیرهٔ پایگاه اضافه کن.', ability: 'trade', incomeMult: 1.18, tank: { armor: 72, pen: 72, hp: 950, speed: 2.8 }, vehicles: { scout: 'ماهیندرا آرمادو', tank: 'آرجون Mk.1A', ifv: 'BMP-2K', mlrs: 'پیناکا', heli: 'پرچند', jet: 'Su-30MKI', atgm: 'ناگ', sam: 'آکاش' }, special: { kind: 'solar', name: 'مزرعهٔ خورشیدی', icon: '☼', cost: 740, description: 'تولید برق و درآمد پایگاه را بالا می‌برد.', hp: 720, powerOutput: 95, income: 5 } },
+  { id: 'fr', name: 'فرانسه', code: 'FR', color: '#75c2c3', trait: 'پشتیبانی میدانی', description: 'ساختمان‌ها از ابتدا مقاوم‌ترند و ترمیم می‌شوند.', abilityName: 'تعمیر اضطراری', abilityText: 'سلامتی نیروها و ساختمان‌ها را بازیابی کن.', ability: 'repair', hpMult: 1.1, tank: { armor: 76, pen: 80, hp: 900, speed: 3.2 }, vehicles: { scout: 'VLRA', tank: 'لکلرک', ifv: 'VBCI', mlrs: 'LRU', heli: 'تایگر', jet: 'رافال', atgm: 'MMP', sam: 'SAMP/T' }, special: { kind: 'hospital', name: 'مرکز امداد', icon: '✚', cost: 860, description: 'نیروهای نزدیک را به‌آرامی ترمیم می‌کند.', hp: 980, powerUse: 34 } },
 ];
 
 const BUILDINGS = [
-  { kind: 'generator', name: 'نیروگاه', icon: 'ϟ', cost: 320, hp: 620, powerOutput: 130, powerUse: 0, description: 'تأمین برق پایگاه' },
-  { kind: 'barracks', name: 'پادگان', icon: '▰', cost: 500, hp: 900, powerUse: 22, description: 'تولید گشتی و مهندس' },
-  { kind: 'factory', name: 'کارخانه', icon: '▥', cost: 720, hp: 1150, powerUse: 42, description: 'تولید زرهی و توپخانه' },
-  { kind: 'turret', name: 'برجک دفاعی', icon: '⌖', cost: 470, hp: 840, powerUse: 24, range: 13, damage: 34, cooldown: 1.05, description: 'دفاع خودکار از محدوده' },
-  { kind: 'refinery', name: 'پالایشگاه', icon: '♨', cost: 650, hp: 980, powerUse: 26, income: 9, description: 'افزایش درآمد دوره‌ای' },
-  { kind: 'radar', name: 'رادار', icon: '◉', cost: 540, hp: 700, powerUse: 24, description: 'گسترش دید تاکتیکی' },
+  { kind: 'hq', name: 'مرکز فرماندهی', icon: '⌂', cost: 1200, hp: 3000, powerUse: 0, range: 12, damage: 18, cooldown: 1.2, armor: 45, description: 'قلب پایگاه؛ بدون آن درآمد و ساخت‌وساز ممکن نیست' },
+  { kind: 'generator', name: 'نیروگاه', icon: 'ϟ', cost: 350, hp: 650, powerOutput: 160, powerUse: 0, armor: 12, requires: 'hq', description: 'تأمین برق کارخانه‌ها و پدافند' },
+  { kind: 'refinery', name: 'پالایشگاه', icon: '♨', cost: 750, hp: 950, powerUse: 25, income: 12, armor: 15, requires: 'hq', description: 'درآمد ثابت +۱۲ اعتبار در ثانیه' },
+  { kind: 'barracks', name: 'پادگان', icon: '▰', cost: 600, hp: 900, powerUse: 20, armor: 18, requires: 'hq', description: 'خودروی شناسایی، مهندس و تیم موشک‌انداز' },
+  { kind: 'turret', name: 'برجک دفاعی', icon: '⌖', cost: 500, hp: 850, powerUse: 20, range: 14, damage: 34, cooldown: 1.0, armor: 40, requires: 'barracks', description: 'پدافند زمینی خودکار' },
+  { kind: 'sam', name: 'سامانهٔ پدافند هوایی', icon: '⌁', cost: 950, hp: 800, powerUse: 30, range: 24, damage: 150, cooldown: 2.2, armor: 25, canHitAir: true, antiAirOnly: true, requires: 'turret', description: 'موشک زمین‌به‌هوا؛ فقط اهداف هوایی' },
+  { kind: 'logistics', name: 'پایانهٔ کشتیرانی', icon: '⚓', cost: 1100, hp: 1050, powerUse: 35, income: 8, armor: 16, requires: 'refinery', description: 'خط لجستیک: درآمد +۸ و ۱۲٪ سرعت تولید بیشتر' },
+  { kind: 'armor', name: 'کارخانهٔ زرهی', icon: '▥', cost: 1500, hp: 1400, powerUse: 55, armor: 25, requires: 'logistics', description: 'تانک، نفربر و راکت‌انداز تولید می‌کند' },
+  { kind: 'airfield', name: 'فرودگاه', icon: '✈', cost: 1800, hp: 1200, powerUse: 60, armor: 18, requires: 'armor', description: 'بالگرد و جنگنده تولید می‌کند' },
 ];
 
 const UNITS = [
-  { kind: 'scout', name: 'خودروی گشتی', icon: '◈', cost: 320, hp: 360, speed: 4.4, range: 7, scan: 10, damage: 23, cooldown: .9, buildTime: 5, requires: 'barracks', requiresName: 'پادگان', description: 'سریع و ارزان؛ برای شناسایی و مزاحمت' },
-  { kind: 'engineer', name: 'مهندس', icon: '⚒', cost: 240, hp: 260, speed: 3.5, range: 0, scan: 6, damage: 0, cooldown: 0, buildTime: 4, repair: 15, requires: 'barracks', requiresName: 'پادگان', description: 'ترمیم خودکار ساختمان‌ها و واحدهای نزدیک' },
-  { kind: 'tank', name: 'تانک زرهی', icon: '▣', cost: 580, hp: 820, speed: 2.7, range: 9, scan: 12, damage: 47, cooldown: 1.35, buildTime: 9, requires: 'factory', requiresName: 'کارخانه', description: 'ستون فقرات خط مقدم' },
-  { kind: 'artillery', name: 'توپخانه', icon: '➤', cost: 690, hp: 500, speed: 1.9, range: 15, scan: 17, damage: 62, cooldown: 2.0, buildTime: 11, requires: 'factory', requiresName: 'کارخانه', description: 'برد بلند و شکننده؛ نیازمند محافظ' },
+  { kind: 'scout', name: 'خودروی شناسایی', icon: '◈', cost: 350, hp: 320, speed: 5.0, range: 7, scan: 12, damage: 16, cooldown: .55, buildTime: 6, armor: 8, penetration: 22, requires: 'barracks', requiresName: 'پادگان', description: 'سریع و ارزان؛ برای شناسایی و مزاحمت' },
+  { kind: 'engineer', name: 'مهندس', icon: '⚒', cost: 240, hp: 260, speed: 3.6, range: 0, scan: 6, damage: 0, cooldown: 0, buildTime: 4, repair: 15, armor: 4, penetration: 0, requires: 'barracks', requiresName: 'پادگان', description: 'ترمیم خودکار ساختمان‌ها و واحدهای آسیب‌دیده' },
+  { kind: 'atgm', name: 'تیم موشک‌انداز', icon: '⌁', cost: 450, hp: 220, speed: 3.0, range: 12, scan: 15, damage: 110, cooldown: 3.2, buildTime: 7, armor: 4, penetration: 95, missile: true, requires: 'barracks', requiresName: 'پادگان', description: 'موشک هدایت‌شده؛ مرگبار برای تانک‌ها' },
+  { kind: 'tank', name: 'تانک اصلی نبرد', icon: '▣', cost: 900, hp: 950, speed: 2.8, range: 10, scan: 13, damage: 90, cooldown: 2.2, buildTime: 12, armor: 75, penetration: 80, requires: 'armor', requiresName: 'کارخانهٔ زرهی', description: 'زره سنگین و توپ ۱۲۰ میلی‌متری' },
+  { kind: 'ifv', name: 'خودروی جنگی پیاده', icon: '▤', cost: 700, hp: 620, speed: 3.8, range: 8, scan: 12, damage: 28, cooldown: .8, buildTime: 9, armor: 40, penetration: 35, canHitAir: true, requires: 'armor', requiresName: 'کارخانهٔ زرهی', description: 'توپ خودکار؛ توان محدود ضدهوایی' },
+  { kind: 'mlrs', name: 'راکت‌انداز چندلول', icon: '➤', cost: 1100, hp: 420, speed: 2.2, range: 22, scan: 24, damage: 80, cooldown: 5, buildTime: 14, armor: 10, penetration: 35, splash: 3.4, missile: true, requires: 'armor', requiresName: 'کارخانهٔ زرهی', description: 'باران راکت با برد ۲۲ و آسیب منطقه‌ای' },
+  { kind: 'heli', name: 'بالگرد رزمی', icon: '✧', cost: 1100, hp: 520, speed: 5.4, range: 10, scan: 16, damage: 55, cooldown: 1.4, buildTime: 13, armor: 20, penetration: 70, air: true, altitude: 5.5, canHitAir: true, missile: true, requires: 'airfield', requiresName: 'فرودگاه', description: 'پرواز بر فراز میدان؛ فقط پدافند هوایی مهارش می‌کند' },
+  { kind: 'jet', name: 'جنگندهٔ چندمنظوره', icon: '✈', cost: 1700, hp: 600, speed: 8.5, range: 9, scan: 20, damage: 100, cooldown: 2.0, buildTime: 18, armor: 15, penetration: 85, air: true, altitude: 8, canHitAir: true, missile: true, requires: 'airfield', requiresName: 'فرودگاه', description: 'سرعت و قدرت بالا؛ ضربهٔ هوایی سریع' },
 ];
 
 const DIFFICULTIES = {
@@ -48,10 +55,7 @@ const DIFFICULTIES = {
   hard: { id: 'hard', name: 'سخت', hint: 'اقتصاد پرسرعت، پدافند سنگین و موج‌های بزرگ', income: 1.42, wave: 22, cap: 18, turrets: 3, think: 2.1, hp: 1.12 },
 };
 
-const BUILDING_INFO = Object.fromEntries([
-  ...BUILDINGS,
-  { kind: 'hq', name: 'مرکز فرماندهی', icon: '⌂', cost: 0, hp: 2500, powerUse: 0, range: 11.5, damage: 17, cooldown: 1.25 },
-].map((item) => [item.kind, item]));
+const BUILDING_INFO = Object.fromEntries(BUILDINGS.map((item) => [item.kind, item]));
 const UNIT_INFO = Object.fromEntries(UNITS.map((item) => [item.kind, item]));
 
 const sound = (() => {
@@ -173,6 +177,8 @@ let boostUntil = { fortify: 0, overdrive: 0, ironclad: 0, recon: 0 };
 let enemyWaveTimer = 28;
 let enemyCredits = 0;
 let enemyThinkTimer = 0;
+let enemyUnitGoal = null;
+let enemyAirSpawned = { heli: 0, jet: 0 };
 let enemyRecruitTimer = 0;
 let enemyWaveNumber = 0;
 let power = { supply: 0, usage: 0, factor: 1 };
@@ -184,6 +190,7 @@ let attackAlertAt = -99;
 let helpWasPaused = false;
 let toastTimer = 0;
 let uiTimer = 0;
+let techSignatureCache = '';
 let passiveHealTimer = 0;
 let repairFxTimer = 0;
 const buildings = [];
@@ -373,7 +380,7 @@ function createBuildingVisual(kind, color, factionId) {
   const group = new THREE.Group();
   const dark = new THREE.Color(color).multiplyScalar(.53);
   const mid = new THREE.Color(color).multiplyScalar(.76);
-  const padSize = kind === 'factory' || kind === 'airfield' ? 5.6 : 4.9;
+  const padSize = kind === 'armor' || kind === 'airfield' || kind === 'airbase' || kind === 'hq' ? 5.6 : 4.9;
   addBox(group, padSize, .28, padSize, 0, .14, 0, '#27362f');
   addBox(group, padSize - .4, .07, .18, 0, .31, -padSize / 2 + .2, color, { roughness: .6 });
 
@@ -399,18 +406,20 @@ function createBuildingVisual(kind, color, factionId) {
     addBox(group, 1.15, .95, .2, 0, .77, 1.53, '#252f2c');
     addBox(group, .18, 1.35, .15, -1.55, .96, 1.55, color);
     addBox(group, .18, 1.35, .15, 1.55, .96, 1.55, color);
-  } else if (kind === 'factory' || kind === 'airfield') {
+  } else if (kind === 'armor' || kind === 'airfield' || kind === 'airbase') {
     addBox(group, 4.55, 1.8, 3.55, 0, 1.11, 0, dark);
     addBox(group, 4.9, .27, 3.9, 0, 2.12, -.02, mid);
     addBox(group, 2.2, 1.35, .18, 0, .95, 1.84, '#252f2c');
     addBox(group, 2.4, .14, .2, 0, 1.68, 1.88, color);
-    if (kind === 'airfield') {
+    if (kind === 'airfield' || kind === 'airbase') {
       addBox(group, 5.1, .06, 1.15, 0, .34, 2.1, '#454d42');
       for (let i = -2; i <= 2; i++) addBox(group, .48, .035, .1, i * .85, .38, 2.1, '#d7d0aa');
       addCylinder(group, .48, .58, 1.1, 12, 1.65, 2.0, -.75, '#7b8171');
     } else {
       addCylinder(group, .34, .4, 1.5, 10, -1.65, 2.28, -.95, '#777f70');
       addCylinder(group, .43, .46, .15, 10, -1.65, 3.08, -.95, color);
+      addBox(group, 1.9, .65, .35, .4, .55, 1.9, '#8b937f');
+      for (const side of [-.7, 0, .7]) addCylinder(group, .18, .18, .5, 8, side, .55, 1.9, '#2f3a32');
     }
   } else if (kind === 'turret' || kind === 'bastion') {
     addCylinder(group, 1.9, 2.0, .34, 18, 0, .46, 0, '#47564a');
@@ -426,6 +435,41 @@ function createBuildingVisual(kind, color, factionId) {
     addCylinder(group, .48, .55, 1.3, 12, 1.2, 1.06, -.55, '#7b8272', { metalness: .2 });
     addCylinder(group, .1, .12, 1.5, 8, 1.65, 1.58, .9, color);
     addBox(group, 3.7, .12, .25, 0, .65, 1.4, color);
+  } else if (kind === 'sam') {
+    addBox(group, 3.2, .7, 2.9, 0, .55, 0, dark);
+    addBox(group, 2.0, .9, 1.7, -1.04, 1.28, .2, mid);
+    addBox(group, .8, .5, .1, -1.04, 1.5, 1.06, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .3 });
+    addCylinder(group, .08, .1, 2.1, 8, 1.2, 1.9, -.4, '#b6b79e');
+    const samRadar = new THREE.Mesh(new THREE.SphereGeometry(.72, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), makeMaterial(color, { metalness: .2, roughness: .45, side: THREE.DoubleSide }));
+    samRadar.position.set(1.2, 2.95, -.4);
+    samRadar.rotation.x = Math.PI * .82;
+    samRadar.scale.set(1, .55, 1);
+    group.add(samRadar);
+    const launcher = new THREE.Group();
+    launcher.position.set(.55, 1.1, .2);
+    launcher.rotation.x = -.42;
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j += 2) {
+        addCylinder(launcher, .16, .16, 1.9, 8, i * .36, j * .19, .6, '#7d8577');
+        addCylinder(launcher, .17, .17, .12, 8, i * .36, j * .19, 1.56, color);
+      }
+    }
+    group.add(launcher);
+    addBox(group, .18, 1.0, .18, 1.85, .8, 1.0, color);
+  } else if (kind === 'logistics') {
+    addBox(group, 4.4, .3, 3.9, 0, .17, 0, '#2a383b');
+    addBox(group, 3.6, 1.7, 2.3, -.4, 1.05, -.6, dark);
+    addBox(group, 3.9, .18, 2.6, -.4, 1.98, -.6, mid);
+    for (let i = 0; i < 5; i++) addBox(group, .7, .12, .1, -1.9 + i * .75, .95, .57, color);
+    addBox(group, 1.7, .35, .9, 1.45, .55, 1.15, '#57665f');
+    addBox(group, 1.5, .3, .8, 1.45, .9, 1.15, color);
+    addCylinder(group, .1, .13, 2.4, 8, 1.75, 1.6, -1.45, '#b6b79e');
+    addBox(group, 1.6, .12, .16, 1.0, 2.75, -1.45, color);
+    addBox(group, .4, .5, .4, 1.75, 3.0, -1.45, '#5d6a5f');
+    for (const [ox, oz] of [[-.9, 1.5], [.5, 1.6]]) {
+      addBox(group, .55, .45, .5, ox, .4, oz, '#b58e5e');
+      addBox(group, .55, .12, .5, ox, .62, oz, '#8c7a55');
+    }
   } else if (kind === 'radar' || kind === 'sensor' || kind === 'droneport') {
     addBox(group, 3.4, .85, 3.0, 0, .72, 0, dark);
     addBox(group, 3.8, .18, 3.2, 0, 1.22, 0, mid);
@@ -472,9 +516,16 @@ function createBuildingVisual(kind, color, factionId) {
   return group;
 }
 
-function createUnitVisual(kind, color) {
+function createUnitVisual(kind, color, factionId = 'us') {
   const group = new THREE.Group();
   const dark = new THREE.Color(color).multiplyScalar(.58);
+  const steel = '#7c8578';
+  const metal = '#4b554e';
+  const wheel = (x, y, z, radius, width = .2) => {
+    const mesh = addCylinder(group, radius, radius, width, 10, x, y, z, '#232b26');
+    mesh.rotation.z = Math.PI / 2;
+    return mesh;
+  };
   if (kind === 'engineer') {
     const body = new THREE.Mesh(new THREE.CylinderGeometry(.34, .43, .9, 8), makeMaterial(dark));
     body.position.y = .62;
@@ -486,6 +537,141 @@ function createUnitVisual(kind, color) {
     group.add(head);
     addBox(group, .65, .3, .3, 0, .65, -.37, color);
     addBox(group, .11, .9, .1, .48, .65, .1, '#c6b879');
+  } else if (kind === 'atgm') {
+    const crew = [[-.34, .3], [.3, -.32]];
+    for (const [ox, oz] of crew) {
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(.28, .36, .85, 8), makeMaterial(dark));
+      body.position.set(ox, .58, oz);
+      body.castShadow = true;
+      group.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(.23, 10, 8), makeMaterial('#b8a67b'));
+      head.position.set(ox, 1.16, oz);
+      head.castShadow = true;
+      group.add(head);
+      addBox(group, .5, .24, .28, ox, .6, oz - .28, color);
+    }
+    const tripod = new THREE.Mesh(new THREE.CylinderGeometry(.05, .09, .72, 6), makeMaterial(metal));
+    tripod.position.set(.05, .42, .25);
+    group.add(tripod);
+    const tube = addCylinder(group, .15, .15, 1.75, 8, .05, .9, .45, steel);
+    tube.rotation.x = -.32;
+    const tip = addCylinder(group, .1, .15, .22, 8, .05, 1.2, 1.26, color);
+    tip.rotation.x = -.32;
+    addBox(group, .3, .22, .55, .05, .78, -.05, metal);
+  } else if (kind === 'heli') {
+    addBox(group, 1.0, .62, 1.9, 0, .05, .15, dark);
+    const nose = addBox(group, .82, .5, .6, 0, .02, 1.3, color);
+    nose.rotation.x = .18;
+    addBox(group, .3, .24, 1.7, 0, .2, -1.55, dark);
+    addBox(group, .7, .08, .1, 0, .38, -2.35, color).rotation.z = 0;
+    const tailRotor = new THREE.Group();
+    tailRotor.position.set(.18, .62, -2.3);
+    addBox(tailRotor, .06, .85, .12, 0, 0, 0, '#cfd3b5');
+    addBox(tailRotor, .06, .12, .85, 0, 0, 0, '#cfd3b5');
+    group.add(tailRotor);
+    group.userData.tailRotor = tailRotor;
+    const cockpit = addBox(group, .62, .34, .62, 0, .3, .95, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
+    cockpit.rotation.x = .12;
+    const rotor = new THREE.Group();
+    rotor.position.set(0, .55, .1);
+    addCylinder(rotor, .11, .14, .3, 8, 0, .1, 0, metal);
+    for (let i = 0; i < 2; i++) {
+      const blade = addBox(rotor, 3.0, .03, .17, 0, .24, 0, '#c9cdb0');
+      blade.rotation.y = (i * Math.PI) / 2;
+    }
+    group.add(rotor);
+    group.userData.rotor = rotor;
+    for (const side of [-1, 1]) {
+      addBox(group, .55, .1, .34, side * .74, .02, .1, color);
+      addCylinder(group, .11, .11, .62, 8, side * .98, -.08, .1, metal).rotation.x = Math.PI / 2;
+      addBox(group, .07, .07, 1.4, side * .55, -.55, .15, metal);
+      addBox(group, .07, .45, .07, side * .55, -.32, .72, metal);
+      addBox(group, .07, .45, .07, side * .55, -.32, -.42, metal);
+    }
+  } else if (kind === 'jet') {
+    addBox(group, .72, .44, 3.0, 0, .1, 0, color);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(.36, .95, 10), makeMaterial(color));
+    nose.rotation.x = Math.PI / 2;
+    nose.position.set(0, .1, 1.9);
+    group.add(nose);
+    const canopy = addBox(group, .42, .26, .95, 0, .38, .72, '#a8e3dc', { emissive: 0x1e3b38, emissiveIntensity: .3 });
+    canopy.rotation.x = -.08;
+    addBox(group, 2.6, .07, .9, 0, -.02, -.35, dark);
+    for (const side of [-1, 1]) {
+      addBox(group, 1.1, .06, .55, side * 1.62, -.02, -.6, color);
+      addBox(group, .42, .05, .42, side * 1.1, .04, -.25, color);
+      addBox(group, .12, .55, .8, side * .34, .38, -1.15, dark);
+      addBox(group, .3, .3, .55, side * .58, -.06, -.35, metal);
+    }
+    addBox(group, .62, .38, .35, 0, .1, -1.62, metal);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(.3, .9, 8), new THREE.MeshBasicMaterial({ color: 0xffb35e, transparent: true, opacity: .75 }));
+    flame.rotation.x = -Math.PI / 2;
+    flame.position.set(0, .1, -2.2);
+    group.add(flame);
+  } else if (kind === 'mlrs') {
+    addBox(group, 1.35, .4, 2.9, 0, .62, 0, dark);
+    addBox(group, 1.3, .78, .85, 0, .98, 1.0, color);
+    const glass = addBox(group, 1.05, .3, .08, 0, 1.12, 1.44, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
+    glass.rotation.x = 0;
+    addBox(group, 1.45, .18, 1.75, 0, .8, -.7, metal);
+    const pod = new THREE.Group();
+    pod.position.set(0, 1.3, -.6);
+    pod.rotation.x = -.46;
+    addBox(pod, 1.2, .62, 1.45, 0, 0, 0, steel);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j += 2) {
+        addCylinder(pod, .11, .11, 1.5, 7, i * .34, j * .17, .12, '#2b332e');
+      }
+    }
+    group.add(pod);
+    for (const side of [-1, 1]) {
+      for (const z of [1.0, -.35, -1.0]) wheel(side * .74, .29, z, .27);
+    }
+    addBox(group, .1, .1, .55, 0, 1.6, -1.55, color);
+  } else if (kind === 'ifv') {
+    addBox(group, 1.62, .52, 2.55, 0, .64, 0, dark);
+    addBox(group, 1.45, .42, 1.3, 0, .96, .6, color);
+    const turret = addBox(group, .85, .4, .9, 0, 1.2, -.2, steel);
+    turret.rotation.x = 0;
+    addBox(group, .13, .13, 1.15, 0, 1.3, .49, '#c3c8a4');
+    addBox(group, .34, .28, .52, .45, 1.36, -.25, metal);
+    addCylinder(group, .09, .09, .55, 7, .45, 1.42, .02, '#2b332e').rotation.x = -.15;
+    for (const side of [-1, 1]) {
+      for (const z of [.9, -.75]) wheel(side * .82, .31, z, .29, .24);
+    }
+    addBox(group, 1.3, .18, .5, 0, 1.02, -1.15, metal);
+  } else if (kind === 'tank') {
+    const eastern = ['ru', 'cn', 'ir'].includes(factionId);
+    addBox(group, 1.9, .42, 2.55, 0, .55, 0, dark);
+    for (const side of [-1, 1]) {
+      addBox(group, .34, .46, 2.4, side * .98, .44, 0, '#2b322d');
+      for (const z of [-.85, -.3, .3, .85]) wheel(side * .98, .27, z, .25, .22);
+      addBox(group, .12, .16, 2.2, side * 1.16, .66, 0, color);
+    }
+    if (eastern) {
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(.62, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), makeMaterial(color));
+      dome.position.set(0, .98, -.15);
+      dome.scale.set(1.1, .62, 1.25);
+      group.add(dome);
+      addCylinder(group, .34, .4, .22, 10, 0, .99, -.18, steel);
+      addBox(group, .17, .17, 1.75, 0, 1.03, .75, '#c6ccb0');
+      addCylinder(group, .1, .1, .34, 8, 0, 1.12, 1.57, metal).rotation.x = Math.PI / 2;
+      addBox(group, .55, .16, .75, .62, 1.16, -.32, steel);
+      for (const side of [-1, 1]) {
+        for (const z of [-.6, 0, .6]) addBox(group, .34, .12, .2, side * .78, .83, z, '#4e5a4a');
+      }
+    } else {
+      addBox(group, 1.25, .42, 1.55, 0, 1.04, -.12, color);
+      const front = addBox(group, 1.05, .3, .5, 0, .99, .68, color);
+      front.rotation.x = .35;
+      addBox(group, .18, .18, 1.8, 0, 1.16, .95, '#c6ccb0');
+      addCylinder(group, .1, .1, .38, 8, 0, 1.24, 1.78, metal).rotation.x = Math.PI / 2;
+      addCylinder(group, .27, .31, .22, 10, .38, 1.34, .35, steel);
+      addBox(group, .32, .12, .34, .38, 1.46, .35, '#c3c8a4');
+      addBox(group, .18, .1, .38, .38, 1.5, .35, '#2d3a34');
+      addBox(group, .7, .2, .7, -.3, 1.3, -.6, metal);
+      for (const side of [-1, 1]) addBox(group, .2, .22, .3, side * .78, 1.2, -.75, '#b7bea0');
+    }
   } else if (kind === 'artillery') {
     addBox(group, 1.35, .42, 2.0, 0, .54, 0, dark);
     addBox(group, .85, .3, .85, 0, .88, -.35, color);
@@ -493,27 +679,29 @@ function createUnitVisual(kind, color) {
     barrel.rotation.x = -.08;
     for (const side of [-1, 1]) {
       for (const z of [-.65, 0, .65]) {
-        const wheel = addCylinder(group, .25, .25, .18, 10, side * .72, .37, z, '#2b322d');
-        wheel.rotation.z = Math.PI / 2;
+        const mesh = addCylinder(group, .25, .25, .18, 10, side * .72, .37, z, '#2b322d');
+        mesh.rotation.z = Math.PI / 2;
       }
     }
   } else {
-    const isTank = kind === 'tank';
-    addBox(group, isTank ? 1.75 : 1.4, .45, isTank ? 2.25 : 1.8, 0, .58, 0, dark);
-    addBox(group, isTank ? 1.35 : 1.05, .39, isTank ? 1.45 : 1.05, 0, .91, -.15, color);
+    // scout: Humvee-style light vehicle with a pintle-mounted machine gun
+    addBox(group, 1.5, .48, 2.2, 0, .66, 0, color);
+    addBox(group, 1.32, .34, .9, 0, 1.02, -.28, dark);
+    const windshield = addBox(group, 1.18, .28, .08, 0, 1.12, .22, '#9fd8d0', { emissive: 0x1e3b38, emissiveIntensity: .25 });
+    windshield.rotation.x = -.22;
+    addBox(group, 1.5, .12, .55, 0, .48, 1.05, metal);
+    addBox(group, 1.42, .1, .28, 0, .5, -1.12, metal);
+    addBox(group, .5, .12, .4, .42, 1.26, -.5, metal);
+    addBox(group, .08, .34, .08, .42, 1.45, -.5, '#2b332e');
+    addBox(group, .1, .1, .62, .42, 1.58, -.2, '#2b332e');
     for (const side of [-1, 1]) {
-      for (const z of [-.67, 0, .67]) {
-        const wheel = addCylinder(group, isTank ? .26 : .22, isTank ? .26 : .22, .19, 10, side * (isTank ? .88 : .71), .38, z, '#252d29');
-        wheel.rotation.z = Math.PI / 2;
+      for (const z of [.72, -.75]) {
+        const mesh = addCylinder(group, .3, .3, .24, 12, side * .78, .31, z, '#202722');
+        mesh.rotation.z = Math.PI / 2;
+        addBox(group, .12, .24, .24, side * .82, .66, z, dark);
       }
     }
-    if (isTank) {
-      const turret = addCylinder(group, .45, .5, .35, 10, 0, 1.15, -.14, '#657064');
-      turret.rotation.x = .02;
-      addBox(group, .18, .18, 1.3, 0, 1.22, .65, '#bbc09e');
-    } else {
-      addBox(group, .48, .22, .62, 0, 1.13, -.1, '#c3c5a0');
-    }
+    addBox(group, .7, .18, .2, 0, .92, 1.05, '#c5c9a6');
   }
   return group;
 }
@@ -526,6 +714,7 @@ function addEntityDecor(entity, radius, height) {
   );
   teamRing.rotation.x = -Math.PI / 2;
   teamRing.position.y = .045;
+  entity.teamRing = teamRing;
   entity.group.add(teamRing);
 
   const ring = new THREE.Mesh(new THREE.RingGeometry(radius * .88, radius, 32), new THREE.MeshBasicMaterial({ color: getEntityColor(entity.owner, entity.factionId), transparent: true, opacity: .92, side: THREE.DoubleSide }));
@@ -577,13 +766,16 @@ function createBuilding(kind, owner, x, z, factionId = owner === 'player' ? sele
   const color = faction.color;
   const hpMult = owner === 'player' ? (faction.hpMult || 1) : difficulty().hp * (faction.hpMult || 1);
   const group = createBuildingVisual(kind, color, factionId);
+  const customName = kind === 'sam' ? faction.vehicles?.sam : null;
   const entity = {
-    entityType: 'building', kind, owner, factionId, name: info.name || 'ساختمان', icon: info.icon || '▥',
+    entityType: 'building', kind, owner, factionId, name: customName || info.name || 'ساختمان', icon: info.icon || '▥',
     x, z, hp: (info.hp || 800) * hpMult, maxHp: (info.hp || 800) * hpMult,
     powerUse: info.powerUse || 0, powerOutput: info.powerOutput || 0, income: info.income || 0,
-    attackRange: info.range || (kind === 'hq' ? 9.5 : 0), scanRange: info.range || (kind === 'hq' ? 10 : 0),
-    damage: info.damage || (kind === 'hq' ? 17 : 0), cooldown: info.cooldown || (kind === 'hq' ? 1.25 : 0),
+    attackRange: info.range || (kind === 'hq' ? 11.5 : 0), scanRange: info.range || (kind === 'hq' ? 12 : 0),
+    damage: info.damage || (kind === 'hq' ? 18 : 0), cooldown: info.cooldown || (kind === 'hq' ? 1.2 : 0),
     lastShot: 0, attackTarget: null, destroyed: false, group, queue: [],
+    armor: info.armor || 15, penetration: 100, canHitAir: !!info.canHitAir, antiAirOnly: !!info.antiAirOnly,
+    splash: info.splash || 0, missile: !!info.missile, air: false, altitude: 0,
   };
   group.position.set(x, 0, z);
   group.userData.entity = entity;
@@ -598,19 +790,31 @@ function createUnit(kind, owner, x, z, factionId = owner === 'player' ? selected
   const info = UNIT_INFO[kind] || UNIT_INFO.scout;
   const faction = factionById(factionId);
   const hpMult = owner === 'player' ? (faction.hpMult || 1) : difficulty().hp * (faction.hpMult || 1);
-  const group = createUnitVisual(kind, faction.color);
+  const group = createUnitVisual(kind, faction.color, factionId);
+  const tankStats = kind === 'tank' ? (faction.tank || {}) : {};
+  const hp = (tankStats.hp || info.hp) * hpMult;
   const entity = {
-    entityType: 'unit', kind, owner, factionId, name: info.name, icon: info.icon,
-    x, z, hp: info.hp * hpMult, maxHp: info.hp * hpMult,
-    speed: info.speed * (faction.speedMult || 1),
+    entityType: 'unit', kind, owner, factionId, name: faction.vehicles?.[kind] || info.name, icon: info.icon,
+    x, z, hp, maxHp: hp,
+    speed: (tankStats.speed || info.speed) * (faction.speedMult || 1),
     attackRange: info.range * (faction.rangeMult || 1),
     scanRange: info.scan * (faction.rangeMult || 1), damage: info.damage,
     cooldown: info.cooldown, lastShot: 0, attackTarget: null, moveTarget: null, destroyed: false, group,
     holdPosition: false, repairRate: info.repair || 0,
+    armor: tankStats.armor || info.armor || 0, penetration: tankStats.pen || info.penetration || 0,
+    canHitAir: !!info.canHitAir, antiAirOnly: false, splash: info.splash || 0, missile: !!info.missile,
+    air: !!info.air, altitude: info.air ? info.altitude : 0, baseAltitude: info.air ? info.altitude : 0,
+    rotor: group.userData.rotor || null, tailRotor: group.userData.tailRotor || null,
+    bobSeed: Math.random() * Math.PI * 2,
   };
-  group.position.set(x, 0, z);
+  if (owner === 'enemy' && entity.air && enemyAirSpawned[entity.kind] !== undefined) enemyAirSpawned[entity.kind] += 1;
+  group.position.set(x, entity.altitude, z);
   group.userData.entity = entity;
-  addEntityDecor(entity, kind === 'tank' || kind === 'artillery' ? 1.65 : .98, kind === 'engineer' ? 1.8 : 1.8);
+  addEntityDecor(entity, kind === 'tank' || kind === 'artillery' || kind === 'mlrs' ? 1.65 : info.air ? 1.5 : .98, info.air ? 2.4 : 1.8);
+  if (info.air) {
+    entity.selectionRing.visible = false;
+    entity.teamRing.visible = false;
+  }
   scene.add(group);
   units.push(entity);
   updateHealthBar(entity);
@@ -659,6 +863,15 @@ function renderFactionGrid() {
   });
 }
 
+function unitLabel(kind, factionId = selectedFactionId) {
+  return factionById(factionId).vehicles?.[kind] || UNIT_INFO[kind]?.name || 'نیرو';
+}
+
+function buildingLabel(kind, factionId = selectedFactionId) {
+  if (kind === 'sam') return factionById(factionId).vehicles?.sam || BUILDING_INFO.sam.name;
+  return findBuildingInfo(kind, factionId)?.name || BUILDING_INFO.hq.name;
+}
+
 function getBuildingCost(kind) {
   const info = findBuildingInfo(kind) || BUILDING_INFO.generator;
   return Math.ceil(info.cost * (playerFaction().costMult || 1));
@@ -669,22 +882,58 @@ function getUnitCost(kind) {
   return Math.ceil(info.cost * (playerFaction().unitCostMult || playerFaction().costMult || 1));
 }
 
+function buildingRequirement(kind) {
+  const info = findBuildingInfo(kind);
+  if (!info) return '';
+  if (kind === 'hq') return '';
+  return info.requires || 'hq';
+}
+
+function canBuildTech(kind) {
+  if (!gameStarted) return false;
+  if (kind === 'hq') return playerBuildingCount('hq') === 0;
+  const requirement = buildingRequirement(kind);
+  return !requirement || playerBuildingCount(requirement) > 0;
+}
+
+function buildOrderStep() {
+  if (playerBuildingCount('hq') === 0) return 'مرکز فرماندهی';
+  if (playerBuildingCount('generator') === 0) return 'نیروگاه';
+  if (playerBuildingCount('refinery') === 0) return 'پالایشگاه';
+  if (playerBuildingCount('barracks') === 0) return 'پادگان';
+  if (playerBuildingCount('turret') === 0) return 'برجک دفاعی';
+  if (playerBuildingCount('sam') === 0) return playerFaction().vehicles?.sam || 'پدافند هوایی';
+  if (playerBuildingCount('logistics') === 0) return 'پایانهٔ کشتیرانی';
+  if (playerBuildingCount('armor') === 0) return 'کارخانهٔ زرهی';
+  if (playerBuildingCount('airfield') === 0) return 'فرودگاه';
+  return '';
+}
+
 function renderToolbar() {
   const list = $('#buildList');
+  const previousScroll = list.scrollLeft;
   const options = activeTab === 'build'
     ? [...BUILDINGS, playerFaction().special]
     : UNITS;
   list.innerHTML = options.map((item) => {
     const isBuilding = activeTab === 'build';
     const price = isBuilding ? getBuildingCost(item.kind) : getUnitCost(item.kind);
-    const requirement = !isBuilding && playerBuildingCount(item.requires) === 0 ? item.requiresName : '';
+    const requirementKind = isBuilding ? buildingRequirement(item.kind) : item.requires;
+    const requirementName = isBuilding
+      ? (requirementKind ? (BUILDING_INFO[requirementKind]?.name || '') : '')
+      : item.requiresName;
+    const duplicateHq = isBuilding && item.kind === 'hq' && playerBuildingCount('hq') > 0;
+    const requirement = (requirementKind && playerBuildingCount(requirementKind) === 0) || duplicateHq ? (duplicateHq ? 'موجود است' : requirementName) : '';
     const extra = item.description || (isBuilding ? '' : 'آمادهٔ تولید');
-    return `<button type="button" class="build-card ${isBuilding ? '' : 'train-card'}" data-kind="${item.kind}" data-building="${isBuilding}" ${requirement ? 'disabled' : ''} title="${extra}">
+    const startHint = isBuilding && item.kind === 'hq' && playerBuildingCount('hq') === 0;
+    const displayName = isBuilding ? buildingLabel(item.kind) : unitLabel(item.kind);
+    return `<button type="button" class="build-card ${isBuilding ? '' : 'train-card'} ${startHint ? 'tech-start' : ''}" data-kind="${item.kind}" data-building="${isBuilding}" ${requirement ? 'disabled' : ''} title="${extra}">
       <span class="build-icon" style="color:${isBuilding ? playerFaction().color : '#9de4cc'}">${item.icon}</span>
-      <span class="build-copy"><strong>${item.name}</strong><small class="cost">◆ ${fmt(price)}</small>${requirement ? `<small class="requires">نیاز: ${requirement}</small>` : ''}<small class="queue-count"></small></span>
+      <span class="build-copy"><strong>${displayName}</strong><small class="cost">◆ ${fmt(price)}</small>${requirement ? `<small class="requires">نیاز: ${requirement}</small>` : ''}<small class="queue-count"></small></span>
     </button>`;
   }).join('');
 
+  list.scrollLeft = previousScroll;
   list.querySelectorAll('.build-card').forEach((button) => {
     button.addEventListener('click', () => {
       if (button.disabled || !gameStarted || paused || gameEnded) return;
@@ -702,8 +951,10 @@ function updateToolbarAvailability() {
     const kind = button.dataset.kind;
     const cost = isBuilding ? getBuildingCost(kind) : getUnitCost(kind);
     let missingRequirement = false;
-    if (!isBuilding) missingRequirement = playerBuildingCount(UNIT_INFO[kind].requires) === 0;
+    if (isBuilding) missingRequirement = !canBuildTech(kind);
+    else missingRequirement = playerBuildingCount(UNIT_INFO[kind].requires) === 0;
     button.disabled = !gameStarted || paused || gameEnded || credits < cost || missingRequirement || (!isBuilding && playerUnitCount() >= UNIT_LIMIT);
+    if (isBuilding && kind === 'hq') button.classList.toggle('tech-start', playerBuildingCount('hq') === 0);
     button.classList.toggle('active', isBuilding && placementKind === kind);
     const costNode = button.querySelector('.cost');
     if (costNode) costNode.textContent = `◆ ${fmt(cost)}`;
@@ -721,6 +972,7 @@ function setToolbarTab(tab) {
   document.querySelectorAll('.toolbar-tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
   $('#toolbarHint').textContent = tab === 'build' ? 'گزینه‌ای را انتخاب کنید، سپس محل ساخت را روی زمین بزنید' : 'نیروها با زمان ساخته می‌شوند و در صف تولید می‌نشینند';
   renderToolbar();
+  updateToolbarHint();
 }
 
 document.querySelectorAll('.toolbar-tab').forEach((button) => button.addEventListener('click', () => setToolbarTab(button.dataset.tab)));
@@ -734,13 +986,15 @@ function startGame(factionId = selectedFactionId) {
   paused = false;
   gameEnded = false;
   elapsed = 0;
-  credits = 2600;
+  credits = 6000;
   abilityCooldown = 0;
   boostUntil = { fortify: 0, overdrive: 0, ironclad: 0, recon: 0 };
-  enemyWaveTimer = Math.round(difficulty().wave);
+  enemyWaveTimer = Math.round(difficulty().wave) + 25;
   enemyRecruitTimer = 4;
-  enemyCredits = 400;
+  enemyCredits = 6000;
   enemyThinkTimer = 2;
+  enemyUnitGoal = null;
+  enemyAirSpawned = { heli: 0, jet: 0 };
   enemyWaveNumber = 0;
   powerWarned = false;
   passiveHealTimer = 0;
@@ -754,8 +1008,8 @@ function startGame(factionId = selectedFactionId) {
   updateSoundButton();
   placementKind = null;
   abilityMode = null;
-  cameraHeight = 44;
-  cameraTarget.set(-18, 0, -11);
+  cameraHeight = 48;
+  cameraTarget.set(-23, 0, -9);
   updateCamera();
   $('#startScreen').classList.add('hidden');
   $('#resultScreen').classList.add('hidden');
@@ -764,24 +1018,6 @@ function startGame(factionId = selectedFactionId) {
   $('#placementHint').classList.add('hidden');
   $('#pauseBtn').innerHTML = '<span>Ⅱ</span>';
   $('#pauseBtn').title = 'توقف بازی';
-
-  createBuilding('hq', 'player', -24, -14, selectedFactionId);
-  createBuilding('generator', 'player', -30, -14, selectedFactionId);
-  createBuilding('barracks', 'player', -23, -20, selectedFactionId);
-  createUnit('tank', 'player', -17.5, -15.4, selectedFactionId);
-  createUnit('scout', 'player', -17, -11.6, selectedFactionId);
-  createUnit('engineer', 'player', -25.6, -8.8, selectedFactionId);
-  if (selectedFactionId === 'us') createUnit('scout', 'player', -20, -8.6, selectedFactionId);
-
-  createBuilding('hq', 'enemy', 24, 14, enemyFactionId);
-  createBuilding('generator', 'enemy', 30, 14, enemyFactionId);
-  createBuilding('barracks', 'enemy', 23, 20, enemyFactionId);
-  createBuilding('factory', 'enemy', 29, 20, enemyFactionId);
-  createBuilding('turret', 'enemy', 16, 9, enemyFactionId);
-  const enemyTank = createUnit('tank', 'enemy', 17, 15.5, enemyFactionId);
-  enemyTank.attackTarget = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
-  const enemyScout = createUnit('scout', 'enemy', 17, 11, enemyFactionId);
-  enemyScout.attackTarget = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
 
   $('#factionBadge').textContent = playerFaction().code;
   $('#factionBadge').style.background = `${playerFaction().color}22`;
@@ -793,14 +1029,33 @@ function startGame(factionId = selectedFactionId) {
   $('#activeBoost').classList.add('hidden');
   setSelection(null);
   setToolbarTab('build');
+  updateToolbarHint();
   updateUI(true);
-  showToast(`فرمانده ${playerFaction().name}، پایگاه آماده است. دشمن روی حالت «${difficulty().name}» است.`);
+  showToast(`فرمانده ${playerFaction().name}، زمین خالی است. با ${fmt(credits)} اعتبار مرکز فرماندهی را بساز.`);
+}
+
+function updateToolbarHint() {
+  if (!gameStarted) return;
+  const hint = $('#toolbarHint');
+  if (!hint) return;
+  if (playerBuildingCount('hq') === 0) {
+    hint.textContent = 'گام ۱: مرکز فرماندهی را بساز (کارت چشمک‌زن)';
+    return;
+  }
+  if (activeTab === 'build') {
+    const next = buildOrderStep();
+    hint.textContent = next ? `گام بعدی: ${next} را بساز` : 'پایگاه کامل شد؛ نیرو بساز و به دشمن حمله کن';
+  } else if (playerBuildingCount('barracks') === 0 && playerBuildingCount('armor') === 0 && playerBuildingCount('airfield') === 0) {
+    hint.textContent = 'برای تولید نیرو اول پادگان بساز';
+  } else {
+    hint.textContent = 'نیروها با زمان ساخته می‌شوند و در صف تولید می‌نشینند';
+  }
 }
 
 function setSelection(entity) {
   if (selectedEntity && selectedEntity.selectionRing) selectedEntity.selectionRing.visible = false;
   selectedEntity = entity && !entity.destroyed ? entity : null;
-  if (selectedEntity && selectedEntity.selectionRing) selectedEntity.selectionRing.visible = true;
+  if (selectedEntity && selectedEntity.selectionRing) selectedEntity.selectionRing.visible = !selectedEntity.air;
   renderSelection();
 }
 
@@ -815,12 +1070,18 @@ function renderSelection() {
   let actions = '';
   if (friendly && selectedEntity.entityType === 'unit') {
     actions = `<div class="selection-actions"><button class="mini-action" data-action="stop">${selectedEntity.holdPosition ? 'آزادکردن واحد' : 'توقف و پدافند'}</button>${selectedEntity.damage > 0 ? '<button class="mini-action" data-action="attack">حالت حمله</button>' : ''}</div>`;
-  } else if (friendly && ['barracks', 'factory'].includes(selectedEntity.kind)) {
+  } else if (friendly && ['barracks', 'armor', 'airfield'].includes(selectedEntity.kind)) {
     actions = `<div class="selection-actions"><button class="mini-action" data-action="train">رفتن به تولید نیرو</button></div>`;
   } else if (friendly && selectedEntity.kind === 'hq') {
     actions = `<div class="selection-actions"><button class="mini-action" data-action="build">فرمان‌های ساخت</button></div>`;
   }
-  card.innerHTML = `<div class="selection-entity-head"><span class="selection-entity-icon" style="color:${factionById(selectedEntity.factionId).color}">${selectedEntity.icon}</span><div class="selection-data"><strong>${selectedEntity.name}</strong><small>${selectedEntity.entityType === 'unit' ? 'واحد میدانی' : 'ساختمان پایگاه'}</small></div><span class="owner-tag" style="color:${friendly ? '#86d9b5' : '#f28b7f'}">${friendly ? 'خودی' : 'دشمن'}</span></div><div class="health-track"><span style="width:${ratio}%"></span></div><div class="queue-line" id="selectionQueue"></div>${actions}`;
+  const kindLabel = selectedEntity.entityType === 'unit'
+    ? (selectedEntity.air ? 'هوایی' : 'زمینی')
+    : 'ساختمان پایگاه';
+  const statLine = selectedEntity.entityType === 'unit'
+    ? `<div class="selection-stats"><span>زره ${faDigits(Math.round(selectedEntity.armor || 0))}</span><span>نفوذ ${faDigits(Math.round(selectedEntity.penetration || 0))}</span>${selectedEntity.canHitAir ? '<span>ضدهوایی</span>' : ''}${selectedEntity.splash ? '<span>آسیب منطقه‌ای</span>' : ''}</div>`
+    : `<div class="selection-stats"><span>زره ${faDigits(Math.round(selectedEntity.armor || 0))}</span>${selectedEntity.canHitAir ? '<span>پدافند هوایی</span>' : ''}${selectedEntity.income ? `<span>درآمد ${faDigits(selectedEntity.income)}</span>` : ''}</div>`;
+  card.innerHTML = `<div class="selection-entity-head"><span class="selection-entity-icon" style="color:${factionById(selectedEntity.factionId).color}">${selectedEntity.icon}</span><div class="selection-data"><strong>${selectedEntity.name}</strong><small>${kindLabel}</small></div><span class="owner-tag" style="color:${friendly ? '#86d9b5' : '#f28b7f'}">${friendly ? 'خودی' : 'دشمن'}</span></div><div class="health-track"><span style="width:${ratio}%"></span></div>${statLine}<div class="queue-line" id="selectionQueue"></div>${actions}`;
   card.querySelectorAll('.mini-action').forEach((button) => button.addEventListener('click', () => {
     const action = button.dataset.action;
     if (action === 'stop') {
@@ -852,7 +1113,7 @@ function refreshSelectionHealth() {
     const job = selectedEntity.queue[0];
     const percent = Math.round((1 - Math.max(0, job.remaining) / Math.max(.001, job.total)) * 100);
     const rest = selectedEntity.queue.length - 1;
-    queueNode.textContent = `تولید: ${UNIT_INFO[job.kind].name} · ${faDigits(percent)}٪${rest > 0 ? ` · در صف: ${faDigits(rest)}` : ''}`;
+    queueNode.textContent = `تولید: ${unitLabel(job.kind, selectedEntity.factionId)} · ${faDigits(percent)}٪${rest > 0 ? ` · در صف: ${faDigits(rest)}` : ''}`;
   } else {
     queueNode.textContent = '';
   }
@@ -860,6 +1121,12 @@ function refreshSelectionHealth() {
 
 function startPlacement(kind) {
   if (!gameStarted || paused || gameEnded) return;
+  if (!canBuildTech(kind)) {
+    const requirement = kind === 'hq' ? 'مرکز فرماندهی فعلی را نگه دار' : (BUILDING_INFO[buildingRequirement(kind)]?.name || 'ساختمان لازم');
+    showToast(`برای ساخت این گزینه ابتدا ${requirement} لازم است.`, 'warn');
+    sound.deny();
+    return;
+  }
   sound.ui();
   placementKind = kind;
   abilityMode = null;
@@ -867,10 +1134,11 @@ function startPlacement(kind) {
   $('#placementHint').innerHTML = 'نقطهٔ ساخت را انتخاب کنید <kbd>Esc</kbd> برای لغو';
   if (placementGhost) scene.remove(placementGhost);
   placementGhost = new THREE.Group();
-  const plate = new THREE.Mesh(new THREE.CylinderGeometry(2.55, 2.55, .08, 32), new THREE.MeshBasicMaterial({ color: 0x6de2b1, transparent: true, opacity: .28 }));
+  const ghostRadius = ['hq', 'armor', 'airfield', 'airbase'].includes(kind) ? 3.05 : 2.55;
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(ghostRadius, ghostRadius, .08, 32), new THREE.MeshBasicMaterial({ color: 0x6de2b1, transparent: true, opacity: .28 }));
   plate.position.y = .15;
   placementGhost.add(plate);
-  const outline = new THREE.Mesh(new THREE.RingGeometry(2.55, 2.72, 32), new THREE.MeshBasicMaterial({ color: 0x8af0c4, transparent: true, opacity: .95, side: THREE.DoubleSide }));
+  const outline = new THREE.Mesh(new THREE.RingGeometry(ghostRadius, ghostRadius + .17, 32), new THREE.MeshBasicMaterial({ color: 0x8af0c4, transparent: true, opacity: .95, side: THREE.DoubleSide }));
   outline.rotation.x = -Math.PI / 2;
   outline.position.y = .21;
   placementGhost.add(outline);
@@ -895,11 +1163,17 @@ function snappedPoint(point) {
 }
 
 function validBuildSpotFor(owner, x, z, kind) {
-  const boundary = kind === 'factory' ? 4.2 : 3.4;
+  const boundary = ['factory', 'armor', 'airfield', 'airbase', 'hq'].includes(kind) ? 4.6 : 3.6;
   if (Math.abs(x) > HALF_W - boundary || Math.abs(z) > HALF_D - boundary) return false;
+  if (kind === 'hq') {
+    if (owner === 'player' && x > -4) return false;
+    if (owner === 'enemy' && x < 4) return false;
+    if (buildings.some((building) => building.owner === owner && building.kind === 'hq')) return false;
+    return !buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 7.5);
+  }
   const friendly = buildings.filter((building) => building.owner === owner);
-  if (!friendly.some((building) => Math.hypot(building.x - x, building.z - z) < 16.2)) return false;
-  return !buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 5.5);
+  if (!friendly.some((building) => Math.hypot(building.x - x, building.z - z) < 20)) return false;
+  return !buildings.some((building) => Math.hypot(building.x - x, building.z - z) < 5.8);
 }
 
 function validBuildSpot(x, z, kind) {
@@ -928,7 +1202,13 @@ function placeBuildingAt(x, z) {
   const point = snappedPoint({ x, z });
   const kind = placementKind;
   if (!validBuildSpot(point.x, point.z, kind)) {
-    showToast('این نقطه مناسب نیست؛ نزدیک پایگاه و دور از ساختمان‌ها انتخاب کن.', 'warn');
+    if (kind === 'hq' && point.x > -4) showToast('مرکز فرماندهی را فقط در نیمهٔ زمین خودی بساز.', 'warn');
+    else showToast('این نقطه مناسب نیست؛ نزدیک پایگاه و دور از ساختمان‌ها انتخاب کن.', 'warn');
+    sound.deny();
+    return;
+  }
+  if (!canBuildTech(kind)) {
+    showToast('پیش‌نیاز این ساختمان ساخته نشده است.', 'warn');
     sound.deny();
     return;
   }
@@ -1024,10 +1304,15 @@ function spawnUnitFrom(producer, kind) {
   } else {
     stats.trained += 1;
     sound.build();
-    showToast(`${UNIT_INFO[kind].name} آماده شد.`, 'good');
+    showToast(`${unitLabel(kind, factionId)} آماده شد.`, 'good');
     if (selectedEntity && selectedEntity.owner === 'player' && selectedEntity.entityType === 'unit') setSelection(selectedEntity);
   }
   return unit;
+}
+
+function productionSpeed(owner) {
+  const logistics = owner === 'player' ? playerBuildingCount('logistics') : enemyBuildingCount('logistics');
+  return 1 + Math.min(.36, logistics * .12);
 }
 
 function updateProduction(dt) {
@@ -1035,7 +1320,7 @@ function updateProduction(dt) {
     if (producer.destroyed || !producer.queue?.length) continue;
     const job = producer.queue[0];
     const factor = producer.owner === 'player' ? power.factor : enemyPower.factor;
-    job.remaining -= dt * Math.max(.45, factor);
+    job.remaining -= dt * Math.max(.45, factor) * productionSpeed(producer.owner);
     if (job.remaining > 0) continue;
     const unit = spawnUnitFrom(producer, job.kind);
     if (!unit) { job.remaining = .4; continue; }
@@ -1263,7 +1548,7 @@ function useAirstrike(x, z) {
   if (targets.length === 0) {
     showToast('هدف دشمنی در محدوده نبود؛ حمله مصرف شد.');
   } else {
-    const airfieldBonus = playerBuildingCount('airfield') > 0 ? 1.3 : 1;
+    const airfieldBonus = (playerBuildingCount('airfield') > 0 || playerBuildingCount('airbase') > 0) ? 1.3 : 1;
     targets.forEach((target) => damageEntity(target, (target.kind === 'hq' ? 260 : 390) * airfieldBonus, null));
     sound.explode();
     showToast(`حملهٔ هوایی به ${targets.length.toLocaleString('fa-IR')} هدف اصابت کرد.`);
@@ -1384,8 +1669,7 @@ function cancelModes() {
 
 function focusHome() {
   const hq = buildings.find((building) => building.owner === 'player' && building.kind === 'hq');
-  if (!hq) return;
-  cameraTarget.set(hq.x, 0, hq.z);
+  cameraTarget.set(hq ? hq.x : -23, 0, hq ? hq.z : -9);
   updateCamera();
 }
 
@@ -1424,11 +1708,19 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
+function canTargetEntity(attacker, target) {
+  if (!target || target.destroyed || target.hp <= 0) return false;
+  if (target.owner === attacker.owner) return false;
+  if (target.air && !attacker.canHitAir) return false;
+  if (attacker.antiAirOnly && !target.air) return false;
+  return true;
+}
+
 function nearestEnemy(attacker, maxRange) {
   let nearest = null;
   let nearestDistance = Infinity;
   for (const candidate of [...units, ...buildings]) {
-    if (candidate.owner === attacker.owner || candidate.destroyed || candidate.hp <= 0) continue;
+    if (!canTargetEntity(attacker, candidate)) continue;
     const d = distance(attacker, candidate);
     if (d <= maxRange && d < nearestDistance) { nearest = candidate; nearestDistance = d; }
   }
@@ -1458,7 +1750,8 @@ function updateMovement(dt) {
     const step = Math.min(d, speed * dt);
     unit.x += dx / d * step;
     unit.z += dz / d * step;
-    unit.group.position.set(unit.x, 0, unit.z);
+    const lift = unit.air ? unit.altitude + Math.sin(elapsed * 2.2 + unit.bobSeed) * .16 : 0;
+    unit.group.position.set(unit.x, lift, unit.z);
     unit.group.rotation.y = Math.atan2(dx, dz);
     // Keep the health bar facing the (fixed) camera instead of spinning with the chassis.
     if (unit.healthBar?.group) unit.healthBar.group.rotation.y = -unit.group.rotation.y;
@@ -1468,14 +1761,15 @@ function updateMovement(dt) {
 function updateUnitSeparation() {
   for (let i = 0; i < units.length; i++) {
     const a = units[i];
-    if (a.destroyed) continue;
+    if (a.destroyed || a.air) continue;
     for (let j = i + 1; j < units.length; j++) {
       const b = units[j];
-      if (b.destroyed) continue;
+      if (b.destroyed || b.air) continue;
       const dx = b.x - a.x;
       const dz = b.z - a.z;
       const d = Math.hypot(dx, dz);
-      const minDistance = (a.kind === 'tank' || a.kind === 'artillery' ? 1.7 : 1.05) + (b.kind === 'tank' || b.kind === 'artillery' ? 1.7 : 1.05);
+      const sizeOf = (unit) => (unit.kind === 'tank' || unit.kind === 'artillery' ? 1.7 : unit.kind === 'ifv' || unit.kind === 'mlrs' ? 1.4 : 1.05);
+      const minDistance = sizeOf(a) + sizeOf(b);
       if (d >= minDistance || d < .0001) continue;
       const push = (minDistance - d) * .5;
       const nx = dx / d;
@@ -1484,8 +1778,8 @@ function updateUnitSeparation() {
       a.z = THREE.MathUtils.clamp(a.z - nz * push, -HALF_D + 1.5, HALF_D - 1.5);
       b.x = THREE.MathUtils.clamp(b.x + nx * push, -HALF_W + 1.5, HALF_W - 1.5);
       b.z = THREE.MathUtils.clamp(b.z + nz * push, -HALF_D + 1.5, HALF_D - 1.5);
-      a.group.position.set(a.x, 0, a.z);
-      b.group.position.set(b.x, 0, b.z);
+      if (!a.air) a.group.position.set(a.x, a.altitude || 0, a.z);
+      if (!b.air) b.group.position.set(b.x, b.altitude || 0, b.z);
     }
   }
 }
@@ -1494,7 +1788,7 @@ function updateCombat() {
   const attackers = [...buildings, ...units].filter((entity) => !entity.destroyed && entity.damage > 0);
   for (const attacker of attackers) {
     let target = attacker.attackTarget;
-    if (!target || target.destroyed || target.hp <= 0 || target.owner === attacker.owner) {
+    if (!canTargetEntity(attacker, target)) {
       attacker.attackTarget = null;
       target = null;
     }
@@ -1536,28 +1830,47 @@ function updateCombat() {
       const attackerFaction = factionById(attacker.factionId);
       if (attackerFaction.turretMult && (attacker.kind === 'turret' || attacker.kind === 'bastion')) damage *= attackerFaction.turretMult;
       if (attacker.owner === 'player' && playerBuildingCount('bastion') > 0 && attacker.entityType === 'building' && attacker.kind === 'turret') damage *= 1.2;
-      if (attacker.owner === 'player' && playerFaction().ability === 'airstrike' && playerBuildingCount('airfield') > 0) damage *= 1.1;
+      if (attacker.owner === 'player' && playerFaction().ability === 'airstrike' && (playerBuildingCount('airfield') > 0 || playerBuildingCount('airbase') > 0)) damage *= 1.1;
       createShot(attacker, target);
       sound.shot(attacker.owner === 'player');
       damageEntity(target, damage, attacker);
+      if (attacker.splash > 0) {
+        for (const splashTarget of [...units, ...buildings]) {
+          if (splashTarget === target || !canTargetEntity(attacker, splashTarget)) continue;
+          if (Math.hypot(splashTarget.x - target.x, splashTarget.z - target.z) <= attacker.splash) {
+            damageEntity(splashTarget, damage * .45, attacker);
+          }
+        }
+      }
     }
   }
 }
 
 function createShot(attacker, target) {
-  const startY = attacker.entityType === 'building' ? 2.25 : 1.0;
-  const endY = target.entityType === 'building' ? 1.55 : .85;
+  const attackerLift = attacker.entityType === 'unit' ? (attacker.air ? attacker.altitude : 0) : 0;
+  const startY = (attacker.entityType === 'building' ? 2.25 : 1.0) + attackerLift;
+  const targetLift = target.air ? target.altitude : 0;
+  const endY = (target.entityType === 'building' ? 1.55 : .85) + targetLift;
   const points = [new THREE.Vector3(attacker.x, startY, attacker.z), new THREE.Vector3(target.x, endY, target.z)];
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const color = attacker.owner === 'player' ? new THREE.Color(playerFaction().color) : new THREE.Color(enemyFaction().color);
-  const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .88 }));
+  const material = new THREE.LineBasicMaterial({
+    color: attacker.missile ? new THREE.Color(0xffd27a) : color,
+    transparent: true,
+    opacity: attacker.missile ? .95 : .88,
+  });
+  const line = new THREE.Line(geometry, material);
   scene.add(line);
-  effects.push({ object: line, remaining: .16 });
+  effects.push({ object: line, remaining: attacker.missile ? .3 : .16 });
 }
 
 function damageEntity(target, amount, attacker) {
   if (!target || target.destroyed) return;
   let reduction = 1;
+  if (target.armor) {
+    const penetration = Math.max(20, attacker?.penetration || 100);
+    reduction *= 1 - Math.min(.62, target.armor / (target.armor + penetration * 2.4));
+  }
   if (target.owner === 'player') {
     if (playerFaction().armorMult) reduction *= playerFaction().armorMult;
     if (boostUntil.ironclad > elapsed) reduction *= .58;
@@ -1582,13 +1895,13 @@ function healEntity(entity, amount) {
   if (selectedEntity === entity) refreshSelectionHealth();
 }
 
-function spawnBlast(x, z, radius = 2.4) {
+function spawnBlast(x, z, radius = 2.4, y = .14) {
   const blast = new THREE.Mesh(
     new THREE.RingGeometry(radius * .35, radius, 28),
     new THREE.MeshBasicMaterial({ color: 0xffb066, transparent: true, opacity: .75, side: THREE.DoubleSide }),
   );
   blast.rotation.x = -Math.PI / 2;
-  blast.position.set(x, .14, z);
+  blast.position.set(x, y, z);
   scene.add(blast);
   effects.push({ object: blast, remaining: .55, scale: true });
 }
@@ -1605,7 +1918,7 @@ function destroyEntity(entity, attacker) {
   if (selectedEntity === entity) setSelection(null);
   if (entity.owner === 'enemy') stats.kills += 1;
   else stats.losses += 1;
-  spawnBlast(entity.x, entity.z, entity.entityType === 'building' ? 3.2 : 2.1);
+  spawnBlast(entity.x, entity.z, entity.entityType === 'building' ? 3.2 : 2.1, entity.air ? entity.altitude : .14);
   sound.explode();
   if (entity.kind === 'hq') {
     finishGame(entity.owner === 'enemy');
@@ -1658,9 +1971,11 @@ function updatePowerStates() {
 }
 
 function updateEconomy(dt) {
+  if (playerBuildingCount('hq') === 0) return;
   const refineries = buildings.filter((building) => building.owner === 'player' && building.kind === 'refinery').length;
+  const logistics = buildings.filter((building) => building.owner === 'player' && building.kind === 'logistics').length;
   const specialCount = buildings.filter((building) => building.owner === 'player' && building.kind === playerFaction().special.kind).length;
-  let income = 18 + refineries * 9;
+  let income = 20 + refineries * 12 + logistics * 8;
   income += specialCount * (playerFaction().special.income || 0);
   if (playerFaction().incomeMult) income *= playerFaction().incomeMult;
   if (power.factor < 1) income *= .85;
@@ -1718,15 +2033,27 @@ function enemyBuildingCount(kind) {
 
 function findEnemyBuildSpot(kind) {
   const hq = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
+  if (kind === 'hq') {
+    for (const [x, z] of [[26, 16], [28, 10], [22, 22], [30, 22], [20, 12], [26, 26]]) {
+      if (validBuildSpotFor('enemy', x, z, 'hq')) return { x, z };
+    }
+    return null;
+  }
   if (!hq) return null;
   const towardPlayer = Math.atan2(-hq.z, -hq.x);
   const startAngle = kind === 'turret' ? towardPlayer : Math.random() * Math.PI * 2;
-  const radii = kind === 'turret' ? [8, 11, 14, 17] : [9, 12, 15, 18];
+  const radii = kind === 'turret' ? [8, 11, 14, 17, 20] : [9, 12, 15, 18, 21, 24];
   for (const radius of radii) {
-    for (let step = 0; step < 16; step++) {
-      const angle = startAngle + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * (Math.PI / 8);
+    for (let step = 0; step < 24; step++) {
+      const angle = startAngle + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * (Math.PI / 12);
       const x = Math.round((hq.x + Math.cos(angle) * radius) / 2) * 2;
       const z = Math.round((hq.z + Math.sin(angle) * radius) / 2) * 2;
+      if (validBuildSpotFor('enemy', x, z, kind)) return { x, z };
+    }
+  }
+  // Fallback: sweep the enemy half of the map so a crowded base can still expand.
+  for (let z = -HALF_D + 6; z <= HALF_D - 6; z += 2) {
+    for (let x = 6; x <= HALF_W - 6; x += 2) {
       if (validBuildSpotFor('enemy', x, z, kind)) return { x, z };
     }
   }
@@ -1734,22 +2061,22 @@ function findEnemyBuildSpot(kind) {
 }
 
 function enemyDesiredBuilding() {
-  const counts = {
-    generator: enemyBuildingCount('generator'),
-    barracks: enemyBuildingCount('barracks'),
-    factory: enemyBuildingCount('factory'),
-    turret: enemyBuildingCount('turret'),
-    refinery: enemyBuildingCount('refinery'),
-  };
   const diff = difficulty();
+  const count = (kind) => enemyBuildingCount(kind);
+  if (count('hq') === 0) return 'hq';
   if (enemyPower.supply < enemyPower.usage + 55) return 'generator';
-  if (counts.refinery < 2) return 'refinery';
-  if (counts.turret < diff.turrets) return 'turret';
-  if (counts.barracks < 1) return 'barracks';
-  if (counts.factory < 1) return 'factory';
-  if (counts.factory < 2 && elapsed > 110) return 'factory';
-  if (counts.barracks < 2 && elapsed > 160) return 'barracks';
-  if (counts.refinery < 3 && elapsed > 240) return 'refinery';
+  if (count('refinery') < 2) return 'refinery';
+  if (count('barracks') < 1) return 'barracks';
+  if (count('turret') < Math.max(1, diff.turrets - 1)) return 'turret';
+  if (count('sam') < 1) return 'sam';
+  if (count('logistics') < 1) return 'logistics';
+  if (count('armor') < 1) return 'armor';
+  if (count('airfield') < 1) return 'airfield';
+  if (count('sam') < 2 && elapsed > 110) return 'sam';
+  if (count('turret') < diff.turrets + 1 && elapsed > 120) return 'turret';
+  if (count('refinery') < 3 && elapsed > 150) return 'refinery';
+  if (count('armor') < 2 && elapsed > 190) return 'armor';
+  if (count('barracks') < 2 && elapsed > 220) return 'barracks';
   return null;
 }
 
@@ -1780,17 +2107,37 @@ function enqueueEnemyUnit(kind) {
 
 function pickEnemyUnitKind() {
   const roll = Math.random();
-  if (elapsed > 240 && roll < .22) return 'artillery';
-  if (elapsed > 100 && roll < .58) return 'tank';
+  const hasArmor = enemyBuildingCount('armor') > 0;
+  const hasAirfield = enemyBuildingCount('airfield') > 0;
+  if (hasAirfield && elapsed > 110) {
+    // Make sure the first gunship and the first jet actually show up once the
+    // airfield is standing, then keep them in the normal rotation.
+    if (enemyAirSpawned.heli === 0) return 'heli';
+    if (enemyAirSpawned.jet === 0) return 'jet';
+    if (roll < .18) return 'jet';
+    if (roll < .4) return 'heli';
+  }
+  if (hasArmor && elapsed > 80) {
+    if (roll < .5) return 'tank';
+    if (roll < .72) return 'ifv';
+    if (roll < .86) return 'mlrs';
+  }
+  if (roll < .3) return 'atgm';
   return 'scout';
 }
 
 function recruitEnemyUnit() {
   const diff = difficulty();
   if (enemyUnitCount() + queuedCount('enemy') >= diff.cap) return false;
-  const kind = pickEnemyUnitKind();
-  if (enqueueEnemyUnit(kind)) return true;
-  return enqueueEnemyUnit('scout');
+  // Commit to one unit at a time and save for it: this is what lets the AI
+  // field expensive tanks, gunships and jets instead of endless cheap scouts.
+  if (!enemyUnitGoal) enemyUnitGoal = pickEnemyUnitKind();
+  const info = UNIT_INFO[enemyUnitGoal];
+  if (!info) { enemyUnitGoal = null; return false; }
+  if (enemyBuildingCount(info.requires) === 0) { enemyUnitGoal = null; return false; }
+  if (enemyCredits < Math.ceil(info.cost * .95)) return false;
+  if (enqueueEnemyUnit(enemyUnitGoal)) { enemyUnitGoal = null; return true; }
+  return false;
 }
 
 function stagedEnemyUnits() {
@@ -1819,7 +2166,9 @@ function launchAssault(group = stagedEnemyUnits()) {
 function updateEnemyAI(dt) {
   const diff = difficulty();
   const refineries = enemyBuildingCount('refinery');
-  enemyCredits += dt * (18 + refineries * 10) * diff.income * (enemyFaction().incomeMult || 1);
+  if (enemyBuildingCount('hq') > 0) {
+    enemyCredits += dt * (20 + refineries * 12 + enemyBuildingCount('logistics') * 8) * diff.income * (enemyFaction().incomeMult || 1);
+  }
   enemyThinkTimer -= dt;
   if (enemyThinkTimer <= 0) {
     enemyThinkTimer = diff.think;
@@ -1929,7 +2278,13 @@ function updateUI(force = false) {
   $('#activeBoost').classList.toggle('hidden', boosts.length === 0);
   if (selectedEntity && !selectedEntity.destroyed) refreshSelectionHealth();
   updateProductionBars();
+  const signature = `${playerFaction().id}:${BUILDINGS.map((item) => playerBuildingCount(item.kind)).join('')}:${playerBuildingCount(playerFaction().special.kind)}`;
+  if (signature !== techSignatureCache) {
+    techSignatureCache = signature;
+    renderToolbar();
+  }
   updateToolbarAvailability();
+  updateToolbarHint();
   drawMinimap();
 }
 
@@ -1997,6 +2352,12 @@ function animate(now) {
   lastFrame = now;
   toggleToastTimer(dt);
   if (gameStarted && !paused && !gameEnded) updateGame(dt);
+  for (const unit of units) {
+    if (unit.destroyed) continue;
+    if (unit.air) unit.group.position.y = unit.altitude + Math.sin(elapsed * 2.2 + unit.bobSeed) * .16;
+    if (unit.rotor) unit.rotor.rotation.y += dt * 26;
+    if (unit.tailRotor) unit.tailRotor.rotation.x += dt * 34;
+  }
   renderer.render(scene, camera);
 }
 
@@ -2008,6 +2369,35 @@ resize();
 
 // Read-only snapshot used by the automated smoke test and handy while debugging a battle.
 window.__frontline = {
+  build: (kind, x, z) => {
+    if (!gameStarted) return false;
+    placementKind = kind;
+    placeBuildingAt(x, z);
+    placementKind = null;
+    if (placementGhost) { scene.remove(placementGhost); placementGhost = null; }
+    $('#placementHint').classList.add('hidden');
+    updateUI(true);
+    return buildings.some((building) => building.owner === 'player' && building.kind === kind);
+  },
+  train: (kind) => { trainUnit(kind); return true; },
+  spawn: (kind, owner, x, z) => createUnit(kind, owner, x, z, owner === 'player' ? selectedFactionId : enemyFactionId),
+  hpOf: (kind, owner) => units.filter((unit) => unit.owner === owner && unit.kind === kind).map((unit) => Math.round(unit.hp)),
+  rush: () => {
+    const target = buildings.find((building) => building.owner === 'enemy' && building.kind === 'hq');
+    if (!target) return false;
+    for (const unit of units) {
+      if (unit.owner !== 'player' || unit.destroyed) continue;
+      unit.staging = false;
+      unit.holdPosition = false;
+      unit.attackTarget = target;
+      unit.moveTarget = { x: target.x, z: target.z };
+    }
+    return true;
+  },
+  grant: (amount) => { credits += amount; updateUI(true); return credits; },
+  hq: () => buildings.find((building) => building.owner === 'player' && building.kind === 'hq') || null,
+  ai: () => ({ desired: enemyDesiredBuilding(), goal: enemyUnitGoal, credits: Math.round(enemyCredits), airBuilt: { ...enemyAirSpawned }, power: { ...enemyPower }, spot: enemyDesiredBuilding() ? findEnemyBuildSpot(enemyDesiredBuilding()) : null }),
+  entities: () => ({ buildings: buildings.length, units: units.length }),
   snapshot: () => ({
     elapsed: Math.round(elapsed),
     credits: Math.round(credits),
