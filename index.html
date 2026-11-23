@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#101b20" />
+    <meta name="description" content="Frontline: یک بازی استراتژی سه‌بعدی و مرورگری" />
+    <title>Frontline | نبرد فرماندهان</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport" aria-label="میدان نبرد سه‌بعدی"></div>
+
+      <div class="hud-layer">
+        <header class="topbar glass">
+          <div class="brand-lockup">
+            <div class="brand-mark"><span>F</span></div>
+            <div>
+              <div class="brand-name">FRONTLINE <span>TACTICS</span></div>
+              <div class="brand-subtitle">فرماندهی میدان نبرد</div>
+            </div>
+          </div>
+          <div class="resource-strip">
+            <div class="resource-chip"><span class="resource-glyph gold">◆</span><div><small>اعتبار</small><strong id="creditsValue">۰</strong></div></div>
+            <div class="resource-chip"><span class="resource-glyph cyan">ϟ</span><div><small>برق</small><strong id="powerValue">۰ / ۰</strong></div></div>
+            <div class="resource-chip"><span class="resource-glyph red">▣</span><div><small>نیروها</small><strong id="unitValue">۰</strong></div></div>
+            <div class="resource-chip timer-chip"><span class="resource-glyph">◷</span><div><small>زمان نبرد</small><strong id="timerValue">۰۰:۰۰</strong></div></div>
+          </div>
+          <div class="top-actions">
+            <button id="pauseBtn" class="icon-button" title="توقف بازی" aria-label="توقف بازی"><span>Ⅱ</span></button>
+            <button id="restartBtn" class="icon-button" title="شروع دوباره" aria-label="شروع دوباره"><span>↻</span></button>
+          </div>
+        </header>
+
+        <aside class="faction-card glass">
+          <div class="faction-card-head">
+            <span class="eyebrow">فرماندهی شما</span>
+            <span id="factionBadge" class="faction-badge">—</span>
+          </div>
+          <h2 id="factionName">انتخاب جناح</h2>
+          <p id="factionAbilityText">توانایی ویژهٔ جناح شما در این بخش نمایش داده می‌شود.</p>
+          <button id="abilityBtn" class="ability-button" disabled>
+            <span class="ability-icon">✦</span>
+            <span class="ability-copy"><strong id="abilityName">توانایی ویژه</strong><small id="abilityStatus">آماده</small></span>
+            <span class="ability-arrow">←</span>
+          </button>
+          <div id="activeBoost" class="active-boost hidden"></div>
+        </aside>
+
+        <section class="minimap-card glass" aria-label="نقشهٔ کوچک">
+          <div class="minimap-head"><span>نقشهٔ تاکتیکی</span><span class="live-dot">LIVE</span></div>
+          <canvas id="minimap" width="220" height="150"></canvas>
+          <div class="map-hint">برای جابه‌جایی دوربین روی نقشه بزنید</div>
+        </section>
+
+        <section class="selection-card glass" id="selectionCard">
+          <div class="selection-placeholder">
+            <span class="selection-cross">⌖</span>
+            <div><strong>واحدی انتخاب نشده</strong><small>روی واحد یا ساختمان خود بزنید</small></div>
+          </div>
+        </section>
+
+        <section class="build-panel glass">
+          <div class="build-panel-top">
+            <div class="build-title"><span class="build-title-mark">⌂</span><div><strong>فرمان‌های پایگاه</strong><small id="toolbarHint">برای ساخت‌وساز، یک گزینه را انتخاب کنید</small></div></div>
+            <div class="toolbar-tabs" role="tablist" aria-label="دسته فرمان‌ها">
+              <button class="toolbar-tab active" data-tab="build" role="tab">ساخت‌وساز</button>
+              <button class="toolbar-tab" data-tab="train" role="tab">تولید نیرو</button>
+            </div>
+          </div>
+          <div id="buildList" class="build-list"></div>
+        </section>
+
+        <div id="toast" class="toast" role="status"></div>
+        <div id="placementHint" class="placement-hint hidden">مکان ساخت را انتخاب کنید <kbd>Esc</kbd> برای لغو</div>
+        <div id="pauseVeil" class="pause-veil hidden"><div class="pause-box glass"><span class="pause-symbol">Ⅱ</span><strong>بازی متوقف است</strong><small>برای ادامه، دکمهٔ مکث را بزنید</small></div></div>
+      </div>
+
+      <section id="startScreen" class="screen-overlay">
+        <div class="start-panel glass">
+          <div class="start-brand"><div class="brand-mark large"><span>F</span></div><div><span class="eyebrow">استراتژی سه‌بعدی · نبرد آزاد</span><h1>فرماندهان میدان</h1></div></div>
+          <p class="start-intro">جناح خودت را انتخاب کن، پایگاه بساز و مرکز فرماندهی دشمن را نابود کن.</p>
+          <div class="faction-select-head"><div><strong>انتخاب جناح</strong><small>هر جناح توانایی و سبک بازی ویژهٔ خودش را دارد</small></div><span class="select-count">۸ جناح</span></div>
+          <div id="factionGrid" class="faction-grid"></div>
+          <div class="start-footer"><div class="controls-note"><span>🖱</span><span>انتخاب و حرکت</span><i>·</i><span>روی نقشه بکشید</span><small>روی موبایل با لمس و کشیدن</small></div><button id="startBtn" class="primary-button">ورود به میدان <span>←</span></button></div>
+          <div class="prototype-note">نسخهٔ آزمایشی · بازی تک‌نفره در مرورگر</div>
+        </div>
+      </section>
+
+      <section id="resultScreen" class="screen-overlay hidden">
+        <div class="result-panel glass">
+          <div id="resultIcon" class="result-icon">✦</div>
+          <span id="resultEyebrow" class="eyebrow">عملیات به پایان رسید</span>
+          <h2 id="resultTitle">پیروزی</h2>
+          <p id="resultText">مرکز فرماندهی دشمن نابود شد.</p>
+          <button id="playAgainBtn" class="primary-button">نبرد دوباره <span>↻</span></button>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
